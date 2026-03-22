@@ -6,12 +6,9 @@
     <title>Stock Master Pro</title>
     
     <link rel="manifest" href="./manifest.json">
-
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="StockMaster">
     <link rel="apple-touch-icon" href="./icono.png">
-
     <link rel="icon" type="image/png" href="./icono.png">
     <meta name="theme-color" content="#1d63ff">
 
@@ -31,6 +28,9 @@
         .st-out { background: #fff5f5; color: #fa5252; }
         .btn-icon { border: none; background: #f8f9fa; border-radius: 12px; width: 45px; height: 45px; margin-left: 10px; font-size: 1.2rem; }
         .fab { position: fixed; bottom: 30px; right: 30px; width: 70px; height: 70px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 35px; box-shadow: 0 10px 30px rgba(29, 99, 255, 0.4); border: none; z-index: 1000; }
+        /* Estilo para los avisos personalizados */
+        .modal-confirm { border-radius: 25px; border: none; }
+        .btn-confirm { border-radius: 12px; padding: 10px 25px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -65,7 +65,7 @@
                     <div class="col-6 mb-3"><label class="small fw-bold">NOMBRE</label><input type="text" id="p-nombre" class="form-control"></div>
                 </div>
                 <div class="mb-3"><label class="small fw-bold">CATEGORÍA</label>
-                    <div class="input-group"><select id="p-categoria" class="form-select"></select><button class="btn btn-primary" onclick="nuevaCategoria()">+</button></div>
+                    <div class="input-group"><select id="p-categoria" class="form-select"></select><button class="btn btn-primary" onclick="abrirModalCat()">+</button></div>
                 </div>
                 <div class="row mb-3">
                     <div class="col-6"><label class="small fw-bold">COSTO $</label><input type="number" id="p-costo" class="form-control" step="0.01"></div>
@@ -78,10 +78,41 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalCat" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered p-4">
+        <div class="modal-content modal-confirm">
+            <div class="modal-body text-center p-4">
+                <h5 class="fw-bold">Nueva Categoría</h5>
+                <input type="text" id="nueva-cat-nombre" class="form-control my-3" placeholder="Nombre de categoría...">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-light w-100 btn-confirm" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary w-100 btn-confirm" onclick="guardarCategoria()">Aceptar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalBorrar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered p-4">
+        <div class="modal-content modal-confirm text-center p-4">
+            <h5 class="fw-bold text-danger">⚠️ ¿Eliminar?</h5>
+            <p class="text-muted">Esta acción no se puede deshacer.</p>
+            <input type="hidden" id="borrar-id">
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-light w-100 btn-confirm" data-bs-dismiss="modal">No</button>
+                <button class="btn btn-danger w-100 btn-confirm" onclick="confirmarEliminar()">Sí, borrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
     const modalProd = new bootstrap.Modal(document.getElementById('modalProducto'));
+    const modalCat = new bootstrap.Modal(document.getElementById('modalCat'));
+    const modalBorrar = new bootstrap.Modal(document.getElementById('modalBorrar'));
     let dbLocal = [];
 
     async function init() { await cargarCategorias(); await cargarDatos(); }
@@ -93,7 +124,7 @@
         container.innerHTML = items.length ? '' : '<p class="text-center mt-5">No hay productos</p>';
         items.forEach(p => {
             let badgeCls = p.stock_actual <= 0 ? "st-out" : (p.stock_actual < 10 ? "st-low" : "st-ok");
-            container.innerHTML += `<div class="product-card"><div class="d-flex justify-content-between"><div style="flex:1"><span class="badge bg-light text-dark mb-1">${p.categoria_nombre || 'General'}</span><h6 class="fw-bold mb-1">${p.nombre}</h6><div class="small fw-bold"><span class="text-muted">C: $${p.precio_costo}</span> | <span class="text-primary">V: $${p.precio_venta}</span></div></div><div class="text-end"><div class="stock-badge ${badgeCls} mb-2">${p.stock_actual} ud</div><div class="d-flex"><button class="btn-icon text-primary" onclick="editar('${p.id}')">✏️</button><button class="btn-icon text-danger" onclick="eliminar('${p.id}')">🗑️</button></div></div></div></div>`;
+            container.innerHTML += `<div class="product-card"><div class="d-flex justify-content-between"><div style="flex:1"><span class="badge bg-light text-dark mb-1">${p.categoria_nombre || 'General'}</span><h6 class="fw-bold mb-1">${p.nombre}</h6><div class="small fw-bold"><span class="text-muted">C: $${p.precio_costo}</span> | <span class="text-primary">V: $${p.precio_venta}</span></div></div><div class="text-end"><div class="stock-badge ${badgeCls} mb-2">${p.stock_actual} ud</div><div class="d-flex"><button class="btn-icon text-primary" onclick="editar('${p.id}')">✏️</button><button class="btn-icon text-danger" onclick="abrirBorrar('${p.id}')">🗑️</button></div></div></div></div>`;
         });
     }
 
@@ -108,8 +139,22 @@
         modalProd.hide(); init();
     }
 
-    async function eliminar(id) { if(confirm("¿Eliminar producto?")) { await _supa.from('movimientos_inventario').delete().eq('producto_id', id); await _supa.from('productos').delete().eq('id', id); init(); } }
-    async function nuevaCategoria() { const n = prompt("Nueva Categoría:"); if(n) { await _supa.from('categorias').insert([{ nombre: n }]); init(); } }
+    /* FUNCIONES NUEVAS PARA EVITAR EL DOMINIO EN LOS DIÁLOGOS */
+    function abrirModalCat() { document.getElementById('nueva-cat-nombre').value = ''; modalCat.show(); }
+    async function guardarCategoria() {
+        const n = document.getElementById('nueva-cat-nombre').value;
+        if(n) { await _supa.from('categorias').insert([{ nombre: n }]); modalCat.hide(); init(); }
+    }
+
+    function abrirBorrar(id) { document.getElementById('borrar-id').value = id; modalBorrar.show(); }
+    async function confirmarEliminar() {
+        const id = document.getElementById('borrar-id').value;
+        await _supa.from('movimientos_inventario').delete().eq('producto_id', id);
+        await _supa.from('productos').delete().eq('id', id);
+        modalBorrar.hide();
+        init();
+    }
+
     function exportarExcel() { const ws = XLSX.utils.json_to_sheet(dbLocal.map(p => ({ SKU: p.sku, Nombre: p.nombre, Stock: p.stock_actual, Costo: p.precio_costo, Venta: p.precio_venta }))); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Stock"); XLSX.writeFile(wb, "Inventario.xlsx"); }
     function filtrar(t) { renderizar(dbLocal.filter(x => x.nombre.toLowerCase().includes(t.toLowerCase()) || x.sku.toLowerCase().includes(t.toLowerCase()))); }
     function limpiarForm() { ['p-sku', 'p-nombre', 'p-costo', 'p-precio', 'p-stock', 'edit-id'].forEach(f => document.getElementById(f).value = ''); }
