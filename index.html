@@ -66,101 +66,128 @@
 
     <script>
         // REEMPLAZA CON TU KEY REAL
-        const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
 
-        let dbLocal = [];
-        const modalProd = new bootstrap.Modal(document.getElementById('modalProducto'));
+       // 1. CONFIGURACIÓN: Coloca tu clave real aquí
+    const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
+    
+    const modalProd = new bootstrap.Modal(document.getElementById('modalProducto'));
+    let dbLocal = [];
 
-        async function init() {
-            await cargarCategorias();
-            await cargarDatos();
+    // Función inicializadora
+    async function init() {
+        await cargarCategorias();
+        await cargarDatos();
+    }
+
+    async function cargarCategorias() {
+        // En tu esquema 'categorias' usa 'nombre' en minúscula
+        const { data } = await _supa.from('categorias').select('*').order('nombre');
+        const select = document.getElementById('p-categoria');
+        select.innerHTML = '<option value="">Sin Categoría</option>';
+        data?.forEach(c => {
+            select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+        });
+    }
+
+    async function cargarDatos() {
+        // IMPORTANTE: Aquí usamos 'Nombre' con N mayúscula según tu tabla
+        const { data, error } = await _supa.from('productos').select('*, categorias(nombre)').order('Nombre');
+        if (error) { 
+            console.error("Error en Supabase:", error);
+            return; 
         }
+        dbLocal = data || [];
+        renderizar(dbLocal);
+    }
 
-        async function cargarCategorias() {
-            const { data } = await _supa.from('categorias').select('*').order('nombre');
-            const select = document.getElementById('p-categoria');
-            select.innerHTML = '<option value="">Sin categoría</option>';
-            data?.forEach(c => select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
-        }
-
-        async function cargarDatos() {
-            const { data, error } = await _supa.from('productos').select('*, categorias(nombre)').order('nombre');
-            if (error) {
-                document.getElementById('contenedor-productos').innerHTML = `<p class="text-center text-danger mt-5">Error: ${error.message}</p>`;
-                return;
-            }
-            dbLocal = data || [];
-            renderizar(dbLocal);
-        }
-
-        function renderizar(items) {
-            const container = document.getElementById('contenedor-productos');
-            if (items.length === 0) { container.innerHTML = '<p class="text-center mt-5">No hay productos</p>'; return; }
-            
-            container.innerHTML = items.map(p => {
-                const bCls = p.stock_actual <= 0 ? 'st-out' : (p.stock_actual < 5 ? 'st-low' : 'st-ok');
-                return `
+    function renderizar(items) {
+        const container = document.getElementById('contenedor-productos');
+        container.innerHTML = items.length ? '' : '<p class="text-center mt-5">No hay productos registrados</p>';
+        
+        items.forEach(p => {
+            const badgeCls = p.stock_actual <= 0 ? "st-out" : (p.stock_actual < 5 ? "st-low" : "st-ok");
+            container.innerHTML += `
                 <div class="product-card">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <small class="text-muted">${p.categorias?.nombre || 'General'}</small>
-                            <h6 class="fw-bold m-0">${p.nombre}</h6>
-                            <small class="text-primary">$${p.precio_venta}</small>
+                    <div class="d-flex justify-content-between">
+                        <div onclick="editar('${p.id}')" style="cursor:pointer; flex-grow:1;">
+                            <small class="text-muted">${p.categorias?.nombre || 'General'} | SKU: ${p.sku}</small>
+                            <h5 class="fw-bold mb-1">${p.Nombre}</h5> <span class="text-primary fw-bold">$${p.precio_venta}</span>
                         </div>
                         <div class="text-end">
-                            <div class="stock-badge ${bCls}">${p.stock_actual || 0} uds</div>
-                            <div class="mt-1"><button class="btn btn-sm btn-light" onclick="registrarSalida('${p.id}')">➖</button></div>
+                            <span class="stock-badge ${badgeCls}">${p.stock_actual || 0}</span>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-light" onclick="registrarSalida('${p.id}')">➖</button>
+                            </div>
                         </div>
                     </div>
                 </div>`;
-            }).join('');
-        }
+        });
+    }
 
-        function abrirModal() {
-            document.getElementById('edit-id').value = '';
-            document.getElementById('box-stock').style.display = 'block';
-            document.querySelectorAll('.form-control').forEach(i => i.value = '');
-            modalProd.show();
-        }
+    async function guardar() {
+        const id = document.getElementById('edit-id').value;
+        const stockIni = parseInt(document.getElementById('p-stock').value) || 0;
 
-        async function guardar() {
-            const id = document.getElementById('edit-id').value;
-            const stockIni = parseInt(document.getElementById('p-stock').value) || 0;
-            const obj = {
-                sku: document.getElementById('p-sku').value,
-                nombre: document.getElementById('p-nombre').value,
-                categoria_id: document.getElementById('p-categoria').value || null,
-                precio_costo: parseFloat(document.getElementById('p-costo').value) || 0,
-                precio_venta: parseFloat(document.getElementById('p-precio').value) || 0,
-                stock_actual: stockIni
-            };
+        // Mapeo exacto a tus columnas de Supabase
+        const payload = {
+            sku: document.getElementById('p-sku').value,
+            Nombre: document.getElementById('p-nombre').value, // 'Nombre' con N mayúscula
+            precio_costo: parseFloat(document.getElementById('p-costo').value) || 0,
+            precio_venta: parseFloat(document.getElementById('p-precio').value) || 0,
+            categoria_id: document.getElementById('p-categoria').value || null,
+            stock_actual: id ? undefined : stockIni 
+        };
 
-            const { data, error } = await _supa.from('productos').insert([obj]).select();
-            if (error) alert("Error al guardar: " + error.message);
-            else {
-                modalProd.hide();
-                init();
-            }
-        }
-
-        async function registrarSalida(id) {
-            const cant = prompt("¿Cuántas unidades salieron?");
-            if (cant && !isNaN(cant)) {
+        if (id) {
+            await _supa.from('productos').update(payload).eq('id', id);
+        } else {
+            // Si es nuevo, insertamos y creamos el primer movimiento
+            const { data, error } = await _supa.from('productos').insert([payload]).select().single();
+            if (!error && stockIni > 0) {
                 await _supa.from('movimientos_inventario').insert([{
-                    producto_id: id,
-                    cantidad: parseInt(cant),
-                    tipo_movimiento: 'salida',
-                    motivo: 'Venta rápida'
+                    producto_id: data.id,
+                    cantidad: stockIni,
+                    tipo_movimiento: 'entrada',
+                    motivo: 'Carga inicial'
                 }]);
-                init();
+            } else if (error) {
+                alert("Error al guardar: " + error.message);
             }
         }
+        modalProd.hide();
+        init();
+    }
 
-        function filtrar(t) {
-            renderizar(dbLocal.filter(p => p.nombre.toLowerCase().includes(t.toLowerCase())));
+    async function registrarSalida(id) {
+        const cant = prompt("¿Cuántas unidades se vendieron?");
+        if (cant && !isNaN(cant) && parseInt(cant) > 0) {
+            const { error } = await _supa.from('movimientos_inventario').insert([{
+                producto_id: id,
+                cantidad: parseInt(cant),
+                tipo_movimiento: 'salida',
+                motivo: 'Venta rápida'
+            }]);
+            if (error) alert("Error: " + error.message);
+            else init();
         }
+    }
 
-        window.onload = init;
+    function abrirModal() {
+        document.getElementById('edit-id').value = '';
+        document.getElementById('box-stock').style.display = 'block';
+        document.querySelectorAll('.form-control').forEach(i => i.value = '');
+        modalProd.show();
+    }
+
+    function filtrar(val) {
+        const f = dbLocal.filter(p => 
+            p.Nombre.toLowerCase().includes(val.toLowerCase()) || 
+            (p.sku && p.sku.toLowerCase().includes(val.toLowerCase()))
+        );
+        renderizar(f);
+    }
+
+    window.onload = init;
     </script>
 </body>
 </html>
