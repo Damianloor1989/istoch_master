@@ -105,12 +105,23 @@
         });
     }
 
-    async function cargarDatos() {
-        const { data, error } = await _supa.from('productos').select('*, categorias(nombre)').order('Nombre');
-        if (error) { console.error(error); return; }
+   async function cargarDatos() {
+    try {
+        const { data, error } = await _supa
+            .from('productos')
+            .select('*, categorias(nombre)')
+            .order('Nombre', { ascending: true }); // 'Nombre' con N mayúscula
+
+        if (error) throw error;
+
         dbLocal = data || [];
         renderizar(dbLocal);
+    } catch (err) {
+        console.error("Error cargando datos:", err);
+        document.getElementById('contenedor-productos').innerHTML = 
+            `<p class="text-center text-danger mt-5">Error de conexión: ${err.message}</p>`;
     }
+}
 
     function renderizar(items) {
         const container = document.getElementById('contenedor-productos');
