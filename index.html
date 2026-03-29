@@ -65,22 +65,20 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // REEMPLAZA CON TU KEY REAL
-
-       // 1. CONFIGURACIÓN: Coloca tu clave real aquí
+      
+    // 1. Configuración de Supabase
     const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
     
     const modalProd = new bootstrap.Modal(document.getElementById('modalProducto'));
     let dbLocal = [];
 
-    // Función inicializadora
     async function init() {
         await cargarCategorias();
         await cargarDatos();
     }
 
     async function cargarCategorias() {
-        // En tu esquema 'categorias' usa 'nombre' en minúscula
+        // En tu tabla 'categorias' la columna es 'nombre' (minúscula)
         const { data } = await _supa.from('categorias').select('*').order('nombre');
         const select = document.getElementById('p-categoria');
         select.innerHTML = '<option value="">Sin Categoría</option>';
@@ -90,12 +88,15 @@
     }
 
     async function cargarDatos() {
-        // IMPORTANTE: Aquí usamos 'Nombre' con N mayúscula según tu tabla
-        const { data, error } = await _supa.from('productos').select('*, categorias(nombre)').order('Nombre');
+        // CORRECCIÓN: Usamos 'nombre' en minúscula para que coincida con tu DB
+        const { data, error } = await _supa.from('productos').select('*, categorias(nombre)').order('nombre');
+        
         if (error) { 
             console.error("Error en Supabase:", error);
+            document.getElementById('contenedor-productos').innerHTML = `<p class="text-center text-danger">Error: ${error.message}</p>`;
             return; 
         }
+        
         dbLocal = data || [];
         renderizar(dbLocal);
     }
@@ -105,16 +106,17 @@
         container.innerHTML = items.length ? '' : '<p class="text-center mt-5">No hay productos registrados</p>';
         
         items.forEach(p => {
-            const badgeCls = p.stock_actual <= 0 ? "st-out" : (p.stock_actual < 5 ? "st-low" : "st-ok");
+            const badgeCls = p.stock_actual <= 0 ? "st-out" : (p.stock_actual < 10 ? "st-low" : "st-ok");
             container.innerHTML += `
                 <div class="product-card">
-                    <div class="d-flex justify-content-between">
-                        <div onclick="editar('${p.id}')" style="cursor:pointer; flex-grow:1;">
-                            <small class="text-muted">${p.categorias?.nombre || 'General'} | SKU: ${p.sku}</small>
-                            <h5 class="fw-bold mb-1">${p.Nombre}</h5> <span class="text-primary fw-bold">$${p.precio_venta}</span>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div onclick="editar('${p.id}')" style="cursor:pointer;">
+                            <small class="text-muted">${p.categorias?.nombre || 'General'} | SKU: ${p.sku || 'N/A'}</small>
+                            <h5 class="fw-bold mb-1">${p.nombre}</h5>
+                            <span class="text-primary fw-bold">$${p.precio_venta}</span>
                         </div>
                         <div class="text-end">
-                            <span class="stock-badge ${badgeCls}">${p.stock_actual || 0}</span>
+                            <span class="stock-badge ${badgeCls}">${p.stock_actual || 0} uds</span>
                             <div class="mt-2">
                                 <button class="btn btn-sm btn-light" onclick="registrarSalida('${p.id}')">➖</button>
                             </div>
@@ -128,47 +130,35 @@
         const id = document.getElementById('edit-id').value;
         const stockIni = parseInt(document.getElementById('p-stock').value) || 0;
 
-        // Mapeo exacto a tus columnas de Supabase
         const payload = {
             sku: document.getElementById('p-sku').value,
-            Nombre: document.getElementById('p-nombre').value, // 'Nombre' con N mayúscula
+            nombre: document.getElementById('p-nombre').value, // nombre en minúscula
             precio_costo: parseFloat(document.getElementById('p-costo').value) || 0,
             precio_venta: parseFloat(document.getElementById('p-precio').value) || 0,
             categoria_id: document.getElementById('p-categoria').value || null,
-            stock_actual: id ? undefined : stockIni 
+            stock_actual: stockIni
         };
 
         if (id) {
             await _supa.from('productos').update(payload).eq('id', id);
         } else {
-            // Si es nuevo, insertamos y creamos el primer movimiento
             const { data, error } = await _supa.from('productos').insert([payload]).select().single();
-            if (!error && stockIni > 0) {
-                await _supa.from('movimientos_inventario').insert([{
-                    producto_id: data.id,
-                    cantidad: stockIni,
-                    tipo_movimiento: 'entrada',
-                    motivo: 'Carga inicial'
-                }]);
-            } else if (error) {
-                alert("Error al guardar: " + error.message);
-            }
+            if (error) alert("Error al guardar: " + error.message);
         }
         modalProd.hide();
         init();
     }
 
     async function registrarSalida(id) {
-        const cant = prompt("¿Cuántas unidades se vendieron?");
-        if (cant && !isNaN(cant) && parseInt(cant) > 0) {
-            const { error } = await _supa.from('movimientos_inventario').insert([{
+        const cant = prompt("¿Cantidad vendida?");
+        if (cant && !isNaN(cant)) {
+            await _supa.from('movimientos_inventario').insert([{
                 producto_id: id,
                 cantidad: parseInt(cant),
                 tipo_movimiento: 'salida',
                 motivo: 'Venta rápida'
             }]);
-            if (error) alert("Error: " + error.message);
-            else init();
+            init();
         }
     }
 
@@ -180,10 +170,7 @@
     }
 
     function filtrar(val) {
-        const f = dbLocal.filter(p => 
-            p.Nombre.toLowerCase().includes(val.toLowerCase()) || 
-            (p.sku && p.sku.toLowerCase().includes(val.toLowerCase()))
-        );
+        const f = dbLocal.filter(p => p.nombre.toLowerCase().includes(val.toLowerCase()));
         renderizar(f);
     }
 
