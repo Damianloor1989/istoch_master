@@ -4,26 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Stock Master Pro</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="icono.png">
+    <link rel="icon" type="image/png" href="icono.png">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root { --primary: #1d63ff; --bg: #f4f7fe; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding-bottom: 90px; }
         .app-header { background: white; padding: 20px 15px; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 1000; }
-        .product-card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: none; transition: 0.2s; }
-        .product-card:active { transform: scale(0.98); background: #f8f9ff; }
-        .stock-badge { font-weight: 800; border-radius: 8px; padding: 4px 12px; min-width: 50px; text-align: center; }
+        .product-card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 12px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .stock-badge { font-weight: 800; border-radius: 8px; padding: 4px 10px; min-width: 45px; text-align: center; }
         .st-ok { background: #e3faf3; color: #12b886; }
         .st-low { background: #fff4e6; color: #fd7e14; }
         .st-out { background: #fff5f5; color: #fa5252; }
-        .fab { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: var(--primary); color: white; border-radius: 50%; border: none; font-size: 30px; box-shadow: 0 4px 15px rgba(29,99,255,0.4); z-index: 1001; }
-        .btn-cart { border: none; background: #e7f0ff; color: #1d63ff; border-radius: 12px; padding: 10px; font-size: 1.3rem; line-height: 1; }
+        .fab { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; border: none; font-size: 28px; box-shadow: 0 4px 12px rgba(29,99,255,0.3); z-index: 1001; }
+        .btn-cart { border: none; background: #f0f4ff; color: #1d63ff; border-radius: 10px; padding: 8px; font-size: 1.2rem; }
     </style>
 </head>
 <body>
 
     <div class="app-header">
         <div class="container d-flex justify-content-between align-items-center mb-3">
-            <h3 class="fw-bold m-0 text-primary">📦 Stock Master</h3>
+            <h3 class="fw-bold m-0 text-primary">📦 Stock Master Pro</h3>
             <div>
                 <button class="btn btn-sm btn-outline-success me-2" onclick="exportarExcel()">📊 Excel</button>
                 <button class="btn btn-light rounded-circle" onclick="init()">🔄</button>
@@ -34,7 +40,7 @@
         </div>
     </div>
 
-    <div class="container mt-4" id="contenedor-productos">
+    <div class="container mt-3" id="contenedor-productos">
         <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
     </div>
 
@@ -60,7 +66,7 @@
                             <input type="number" id="p-stock" class="form-control" value="0">
                         </div>
                     </div>
-                    <button class="btn btn-primary w-100 py-3 fw-bold mt-4" onclick="guardar()" style="border-radius: 12px;">Guardar Cambios</button>
+                    <button class="btn btn-primary w-100 py-3 fw-bold mt-4" onclick="guardar()" style="border-radius: 12px;">Confirmar</button>
                 </div>
             </div>
         </div>
@@ -71,7 +77,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script>
-        // Configuración de Supabase - REEMPLAZA TU ANON KEY
+        // Configuración - Coloca tu KEY aquí
         const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
 
         let dbLocal = [];
@@ -90,8 +96,12 @@
         }
 
         async function cargarDatos() {
+            // Se usa 'nombre' en minúscula para evitar error 42703
             const { data, error } = await _supa.from('productos').select('*, categorias(nombre)').order('nombre');
-            if (error) { console.error(error); return; }
+            if (error) { 
+                document.getElementById('contenedor-productos').innerHTML = `<p class="text-danger text-center">Error: ${error.message}</p>`;
+                return; 
+            }
             dbLocal = data || [];
             renderizar(dbLocal);
         }
@@ -108,15 +118,15 @@
                 return `
                 <div class="product-card">
                     <div class="d-flex justify-content-between align-items-center">
-                        <div onclick="abrirModal('${p.id}')" style="cursor:pointer; flex: 1;">
-                            <small class="text-muted text-uppercase" style="font-size: 0.7rem;">${p.categorias?.nombre || 'General'} | SKU: ${p.sku || '-'}</small>
-                            <h6 class="fw-bold m-0" style="color: #2d3436;">${p.nombre}</h6>
-                            <small class="text-primary fw-bold" style="font-size: 0.9rem;">$${p.precio_venta}</small>
+                        <div onclick="abrirModal('${p.id}')" style="flex: 1;">
+                            <small class="text-muted" style="font-size: 0.75rem;">${p.categorias?.nombre || 'General'} | SKU: ${p.sku || '-'}</small>
+                            <h6 class="fw-bold m-0">${p.nombre}</h6>
+                            <span class="text-primary fw-bold">$${p.precio_venta}</span>
                         </div>
-                        <div class="text-end" style="min-width: 80px;">
+                        <div class="text-end">
                             <div class="stock-badge ${bCls}">${p.stock_actual || 0}</div>
                             <div class="mt-2">
-                                <button class="btn-cart" onclick="registrarVenta('${p.id}')" title="Vender">🛒</button>
+                                <button class="btn-cart" onclick="registrarVenta('${p.id}')">🛒</button>
                             </div>
                         </div>
                     </div>
@@ -155,10 +165,8 @@
             };
 
             if (id) {
-                // Actualizar producto existente
                 await _supa.from('productos').update(obj).eq('id', id);
             } else {
-                // Nuevo producto + Stock inicial + Movimiento de Entrada
                 obj.stock_actual = stockIni;
                 const { data, error } = await _supa.from('productos').insert([obj]).select();
                 
@@ -169,8 +177,6 @@
                         tipo_movimiento: 'entrada',
                         motivo: 'Carga inicial'
                     }]);
-                } else if (error) {
-                    alert("Error: " + error.message);
                 }
             }
             modalProd.hide();
@@ -178,41 +184,42 @@
         }
 
         async function registrarVenta(id) {
-            const cant = prompt("¿Cuántas unidades vendiste?");
+            const cant = prompt("¿Unidades vendidas?");
             if (cant && !isNaN(cant) && parseInt(cant) > 0) {
-                const { error } = await _supa.from('movimientos_inventario').insert([{
+                await _supa.from('movimientos_inventario').insert([{
                     producto_id: id,
                     cantidad: parseInt(cant),
                     tipo_movimiento: 'salida',
                     motivo: 'Venta rápida'
                 }]);
-                if(error) alert("Error en venta: " + error.message);
                 init();
             }
         }
 
         function exportarExcel() {
-            if (dbLocal.length === 0) return alert("No hay datos para exportar");
             const data = dbLocal.map(p => ({
                 SKU: p.sku,
                 Producto: p.nombre,
-                Categoría: p.categorias?.nombre || 'General',
                 Stock: p.stock_actual,
-                'Precio Costo': p.precio_costo,
-                'Precio Venta': p.precio_venta
+                Costo: p.precio_costo,
+                Venta: p.precio_venta
             }));
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Inventario");
-            XLSX.writeFile(wb, "Inventario_Aurum.xlsx");
+            XLSX.writeFile(wb, "Stock_Master_Export.xlsx");
         }
 
         function filtrar(t) {
-            const res = dbLocal.filter(p => 
-                p.nombre.toLowerCase().includes(t.toLowerCase()) || 
-                (p.sku && p.sku.toLowerCase().includes(t.toLowerCase()))
-            );
+            const res = dbLocal.filter(p => p.nombre.toLowerCase().includes(t.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(t.toLowerCase())));
             renderizar(res);
+        }
+
+        // Registro de Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error', err));
+            });
         }
 
         window.onload = init;
