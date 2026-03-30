@@ -77,15 +77,27 @@
         await cargarDatos();
     }
 
-    async function cargarCategorias() {
-        // En tu tabla 'categorias' la columna es 'nombre' (minúscula)
-        const { data } = await _supa.from('categorias').select('*').order('nombre');
-        const select = document.getElementById('p-categoria');
-        select.innerHTML = '<option value="">Sin Categoría</option>';
-        data?.forEach(c => {
-            select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+   async function cargarCategorias() {
+    // 1. Pedimos los datos (asegúrate que 'nombre' sea minúscula)
+    const { data, error } = await _supa.from('categorias').select('id, nombre').order('nombre');
+    
+    if (error) {
+        console.error("Error cargando categorías:", error);
+        return;
+    }
+
+    const select = document.getElementById('p-categoria');
+    
+    // 2. Limpiamos y llenamos el select
+    select.innerHTML = '<option value="">Seleccione una categoría...</option>';
+    
+    if (data) {
+        data.forEach(cat => {
+            // 3. Importante: cat.id y cat.nombre deben coincidir con la DB
+            select.innerHTML += `<option value="${cat.id}">${cat.nombre}</option>`;
         });
     }
+}
 
     async function cargarDatos() {
         // CORRECCIÓN: Usamos 'nombre' en minúscula para que coincida con tu DB
