@@ -23,28 +23,48 @@
         .st-out { background: #fff5f5; color: #fa5252; }
         .fab { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; border: none; font-size: 28px; box-shadow: 0 4px 12px rgba(29,99,255,0.3); z-index: 1001; }
         .btn-cart { border: none; background: #f0f4ff; color: #1d63ff; border-radius: 10px; padding: 8px; font-size: 1.2rem; }
+        /* Estilo para el login */
+        #pantalla-login { max-width: 400px; margin: 100px auto; padding: 20px; }
     </style>
 </head>
 <body>
 
-    <div class="app-header">
-        <div class="container d-flex justify-content-between align-items-center mb-3">
-            <h3 class="fw-bold m-0 text-primary">📦 Stock Master Pro</h3>
-            <div>
-                <button class="btn btn-sm btn-outline-success me-2" onclick="exportarExcel()">📊 Excel</button>
-                <button class="btn btn-light rounded-circle" onclick="init()">🔄</button>
+    <div id="pantalla-login">
+        <div class="card border-0 shadow-sm p-4" style="border-radius: 20px;">
+            <h3 class="fw-bold text-primary mb-4 text-center">Stock Master Pro</h3>
+            <div class="mb-3">
+                <label class="small fw-bold">CORREO</label>
+                <input type="email" id="login-email" class="form-control" placeholder="usuario@tienda.com">
+            </div>
+            <div class="mb-4">
+                <label class="small fw-bold">CONTRASEÑA</label>
+                <input type="password" id="login-pass" class="form-control" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary w-100 py-3 fw-bold" onclick="login()">Entrar al Sistema</button>
+        </div>
+    </div>
+
+    <div id="app-principal" style="display:none;">
+        <div class="app-header">
+            <div class="container d-flex justify-content-between align-items-center mb-3">
+                <h3 class="fw-bold m-0 text-primary">📦 Stock Master Pro</h3>
+                <div>
+                    <button class="btn btn-sm btn-outline-danger me-2" onclick="logout()">Salir</button>
+                    <button class="btn btn-sm btn-outline-success me-2" onclick="exportarExcel()">📊 Excel</button>
+                    <button class="btn btn-light rounded-circle" onclick="init()">🔄</button>
+                </div>
+            </div>
+            <div class="container">
+                <input type="text" id="buscador" class="form-control" placeholder="Buscar producto o SKU..." oninput="filtrar(this.value)">
             </div>
         </div>
-        <div class="container">
-            <input type="text" id="buscador" class="form-control" placeholder="Buscar producto o SKU..." oninput="filtrar(this.value)">
+
+        <div class="container mt-3" id="contenedor-productos">
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
         </div>
-    </div>
 
-    <div class="container mt-3" id="contenedor-productos">
-        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        <button class="fab" onclick="abrirModal()">+</button>
     </div>
-
-    <button class="fab" onclick="abrirModal()">+</button>
 
     <div class="modal fade" id="modalProducto" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered p-3">
@@ -77,11 +97,53 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script>
-        // Configuración - Coloca tu KEY aquí
         const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
 
         let dbLocal = [];
+        let MI_TIENDA_ID = null; // Variable clave para multi-tienda
         const modalProd = new bootstrap.Modal(document.getElementById('modalProducto'));
+
+        // --- GESTIÓN DE SESIÓN ---
+
+        async function verificarSesion() {
+            const { data: { session } } = await _supa.auth.getSession();
+            if (session) {
+                // Buscamos la tienda asociada al owner_id (UID del usuario)
+                const { data: tienda, error } = await _supa
+                    .from('tiendas')
+                    .select('id')
+                    .eq('owner_id', session.user.id)
+                    .single();
+
+                if (tienda) {
+                    MI_TIENDA_ID = tienda.id;
+                    document.getElementById('pantalla-login').style.display = 'none';
+                    document.getElementById('app-principal').style.display = 'block';
+                    init();
+                } else {
+                    alert("No tienes una tienda configurada. Contacta soporte.");
+                    logout();
+                }
+            } else {
+                document.getElementById('pantalla-login').style.display = 'block';
+                document.getElementById('app-principal').style.display = 'none';
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            const { error } = await _supa.auth.signInWithPassword({ email, password: pass });
+            if (error) alert("Error: " + error.message);
+            else verificarSesion();
+        }
+
+        async function logout() {
+            await _supa.auth.signOut();
+            window.location.reload();
+        }
+
+        // --- FUNCIONES ORIGINALES AJUSTADAS ---
 
         async function init() {
             await cargarCategorias();
@@ -89,15 +151,16 @@
         }
 
         async function cargarCategorias() {
-            const { data } = await _supa.from('categorias').select('*').order('nombre');
+            // Filtrar categorías por tienda
+            const { data } = await _supa.from('categorias').select('*').eq('tienda_id', MI_TIENDA_ID).order('nombre');
             const select = document.getElementById('p-categoria');
             select.innerHTML = '<option value="">Sin categoría</option>';
             data?.forEach(c => select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
         }
 
         async function cargarDatos() {
-            // Se usa 'nombre' en minúscula para evitar error 42703
-            const { data, error } = await _supa.from('productos').select('*, categorias(nombre)').order('nombre');
+            // Filtrar productos por tienda
+            const { data, error } = await _supa.from('productos').select('*, categorias(nombre)').eq('tienda_id', MI_TIENDA_ID).order('nombre');
             if (error) { 
                 document.getElementById('contenedor-productos').innerHTML = `<p class="text-danger text-center">Error: ${error.message}</p>`;
                 return; 
@@ -161,7 +224,8 @@
                 nombre: document.getElementById('p-nombre').value,
                 categoria_id: document.getElementById('p-categoria').value || null,
                 precio_costo: parseFloat(document.getElementById('p-costo').value) || 0,
-                precio_venta: parseFloat(document.getElementById('p-precio').value) || 0
+                precio_venta: parseFloat(document.getElementById('p-precio').value) || 0,
+                tienda_id: MI_TIENDA_ID // Sello de tienda
             };
 
             if (id) {
@@ -175,7 +239,8 @@
                         producto_id: data[0].id,
                         cantidad: stockIni,
                         tipo_movimiento: 'entrada',
-                        motivo: 'Carga inicial'
+                        motivo: 'Carga inicial',
+                        tienda_id: MI_TIENDA_ID // Sello de tienda
                     }]);
                 }
             }
@@ -190,7 +255,8 @@
                     producto_id: id,
                     cantidad: parseInt(cant),
                     tipo_movimiento: 'salida',
-                    motivo: 'Venta rápida'
+                    motivo: 'Venta rápida',
+                    tienda_id: MI_TIENDA_ID // Sello de tienda
                 }]);
                 init();
             }
@@ -215,14 +281,13 @@
             renderizar(res);
         }
 
-        // Registro de Service Worker para PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error', err));
             });
         }
 
-        window.onload = init;
+        window.onload = verificarSesion;
     </script>
 </body>
 </html>
