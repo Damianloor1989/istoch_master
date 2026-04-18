@@ -1,3 +1,6 @@
+self.addEventListener('install', event => {
+  self.skipWaiting(); // Fuerza a la nueva versión a activarse de inmediato
+});
 const CACHE_NAME = 'stock-master-v1';
 const assets = [
   './',
