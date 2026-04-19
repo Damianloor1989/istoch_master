@@ -98,177 +98,171 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
-        let dbLocal = []; let MI_TIENDA_ID = null;
-        const modalProd = new bootstrap.Modal(document.getElementById('modalProducto'));
-        const modalCat = new bootstrap.Modal(document.getElementById('modalCategorias'));
+    const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
+    let dbLocal = []; 
+    let MI_TIENDA_ID = null;
+    const modalProd = new bootstrap.Modal(document.getElementById('modalProducto'));
+    const modalCat = new bootstrap.Modal(document.getElementById('modalCategorias'));
 
-        async function verificarSesion() {
-    const { data: { session } } = await _supa.auth.getSession();
-    if (session) {
-        // Buscamos TODOS los datos de la tienda vinculada al usuario
-        const { data: tienda, error } = await _supa
-            .from('tiendas')
-            .select('*')
-            .eq('owner_id', session.user.id)
-            .single();
+    async function verificarSesion() {
+        const { data: { session } } = await _supa.auth.getSession();
+        if (session) {
+            const { data: tienda, error } = await _supa
+                .from('tiendas')
+                .select('*')
+                .eq('owner_id', session.user.id)
+                .single();
 
-
-
-        if (tienda) {
-            MI_TIENDA_ID = tienda.id;
-            
-            // Función para forzar el pintado del nombre
-            const actualizarNombreUI = () => {
+            if (tienda) {
+                MI_TIENDA_ID = tienda.id;
+                
+                // Función segura para pintar el nombre
                 const el = document.getElementById('nombre-tienda-display');
-if (el) {
-    el.innerText = "📦 " + (tienda.nombre_comercial || "Tienda Sin Nombre");
-    el.style.color = "red"; // ¡Si ves el nombre en rojo, es que el código llegó!
-    console.log("Datos de la tienda:", tienda);
-}
+                if (el) {
+                    el.innerText = "📦 " + (tienda.nombre_comercial || "Mi Tienda");
+                }
 
-            document.getElementById('pantalla-login').style.display = 'none';
-            document.getElementById('app-principal').style.display = 'block';
-            
-            actualizarNombreUI(); // Llamamos a la función de pintado forzado
-            init();
-        } else {
-            alert("No tienes una tienda configurada.");
-            logout();
-        }
-    } else {
-        document.getElementById('pantalla-login').style.display = 'block';
-        document.getElementById('app-principal').style.display = 'none';
-    }
-}
-    init();
-}
-        } else {
-            console.error("No se encontró tienda para este UID:", session.user.id);
-            alert("Usuario sin tienda vinculada.");
-            logout();
-        }
-    } else {
-        document.getElementById('pantalla-login').style.display = 'block';
-        document.getElementById('app-principal').style.display = 'none';
-    }
-}
-        async function login() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            const { error } = await _supa.auth.signInWithPassword({ email, password: pass });
-            if (error) alert(error.message); else verificarSesion();
-        }
-
-        function logout() { _supa.auth.signOut(); window.location.reload(); }
-
-        async function init() { await cargarCategorias(); await cargarDatos(); }
-
-        async function cargarCategorias() {
-            const { data } = await _supa.from('categorias').select('*').eq('tienda_id', MI_TIENDA_ID).order('nombre');
-            const select = document.getElementById('p-categoria');
-            const lista = document.getElementById('lista-categorias-gestion');
-            select.innerHTML = '<option value="">Sin categoría</option>';
-            lista.innerHTML = '';
-            data?.forEach(c => {
-                select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
-                lista.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">${c.nombre} <button class="btn btn-sm btn-light" onclick="eliminarCat('${c.id}')">🗑️</button></li>`;
-            });
-        }
-
-        async function crearCategoria() {
-            const nom = document.getElementById('nueva-cat-nombre').value;
-            if (nom) {
-                await _supa.from('categorias').insert([{ nombre: nom, tienda_id: MI_TIENDA_ID }]);
-                document.getElementById('nueva-cat-nombre').value = '';
-                cargarCategorias();
-            }
-        }
-
-        async function eliminarCat(id) {
-            if(confirm("¿Eliminar categoría? Los productos quedarán sin categoría.")) {
-                await _supa.from('categorias').delete().eq('id', id);
-                cargarCategorias();
-            }
-        }
-
-        async function cargarDatos() {
-            const { data } = await _supa.from('productos').select('*, categorias(nombre)').eq('tienda_id', MI_TIENDA_ID).order('nombre');
-            dbLocal = data || [];
-            renderizar(dbLocal);
-        }
-
-        function renderizar(items) {
-            const container = document.getElementById('contenedor-productos');
-            container.innerHTML = items.map(p => {
-                const bCls = p.stock_actual <= 0 ? 'st-out' : (p.stock_actual < 5 ? 'st-low' : 'st-ok');
-                return `<div class="product-card d-flex justify-content-between align-items-center">
-                    <div onclick="abrirModal('${p.id}')">
-                        <small class="text-muted">${p.categorias?.nombre || 'General'} | SKU: ${p.sku || '-'}</small>
-                        <h6 class="fw-bold m-0">${p.nombre}</h6>
-                        <span class="text-primary fw-bold">$${p.precio_venta}</span>
-                    </div>
-                    <div class="text-end">
-                        <div class="stock-badge ${bCls}">${p.stock_actual || 0}</div>
-                        <button class="btn-cart mt-2" onclick="registrarVenta('${p.id}')">🛒</button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        function abrirModal(id = null) {
-            document.getElementById('edit-id').value = id || '';
-            document.getElementById('box-stock').style.display = id ? 'none' : 'block';
-            if(id) {
-                const p = dbLocal.find(x => x.id === id);
-                document.getElementById('p-sku').value = p.sku;
-                document.getElementById('p-nombre').value = p.nombre;
-                document.getElementById('p-categoria').value = p.categoria_id;
-                document.getElementById('p-costo').value = p.precio_costo;
-                document.getElementById('p-precio').value = p.precio_venta;
-            } else { document.querySelectorAll('.form-control').forEach(i => i.value = ''); }
-            modalProd.show();
-        }
-
-        function abrirModalCategorias() { modalCat.show(); }
-
-        async function guardar() {
-            const id = document.getElementById('edit-id').value;
-            const obj = {
-                sku: document.getElementById('p-sku').value,
-                nombre: document.getElementById('p-nombre').value,
-                categoria_id: document.getElementById('p-categoria').value || null,
-                precio_costo: parseFloat(document.getElementById('p-costo').value) || 0,
-                precio_venta: parseFloat(document.getElementById('p-precio').value) || 0,
-                tienda_id: MI_TIENDA_ID
-            };
-            if (id) { await _supa.from('productos').update(obj).eq('id', id); }
-            else { 
-                obj.stock_actual = parseInt(document.getElementById('p-stock').value) || 0;
-                await _supa.from('productos').insert([obj]); 
-            }
-            modalProd.hide(); init();
-        }
-
-        async function registrarVenta(id) {
-            const cant = prompt("¿Unidades vendidas?");
-            if (cant > 0) {
-                await _supa.from('movimientos_inventario').insert([{
-                    producto_id: id, cantidad: parseInt(cant), tipo_movimiento: 'salida', motivo: 'Venta rápida', tienda_id: MI_TIENDA_ID
-                }]);
+                document.getElementById('pantalla-login').style.display = 'none';
+                document.getElementById('app-principal').style.display = 'block';
                 init();
+            } else {
+                alert("Usuario sin tienda vinculada.");
+                logout();
             }
+        } else {
+            document.getElementById('pantalla-login').style.display = 'block';
+            document.getElementById('app-principal').style.display = 'none';
         }
+    }
 
-        function filtrar(t) {
-            const res = dbLocal.filter(p => p.nombre.toLowerCase().includes(t.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(t.toLowerCase())));
-            renderizar(res);
+    async function login() {
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-pass').value;
+        const { error } = await _supa.auth.signInWithPassword({ email, password: pass });
+        if (error) {
+            alert("Error: " + error.message);
+        } else {
+            verificarSesion();
         }
+    }
 
-        window.onload = verificarSesion;
-    </script>
+    function logout() { 
+        _supa.auth.signOut(); 
+        window.location.reload(); 
+    }
+
+    async function init() { 
+        await cargarCategorias(); 
+        await cargarDatos(); 
+    }
+
+    async function cargarCategorias() {
+        const { data } = await _supa.from('categorias').select('*').eq('tienda_id', MI_TIENDA_ID).order('nombre');
+        const select = document.getElementById('p-categoria');
+        const lista = document.getElementById('lista-categorias-gestion');
+        if(select) select.innerHTML = '<option value="">Sin categoría</option>';
+        if(lista) lista.innerHTML = '';
+        
+        data?.forEach(c => {
+            if(select) select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+            if(lista) lista.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">${c.nombre} <button class="btn btn-sm btn-light" onclick="eliminarCat('${c.id}')">🗑️</button></li>`;
+        });
+    }
+
+    async function crearCategoria() {
+        const nom = document.getElementById('nueva-cat-nombre').value;
+        if (nom) {
+            await _supa.from('categorias').insert([{ nombre: nom, tienda_id: MI_TIENDA_ID }]);
+            document.getElementById('nueva-cat-nombre').value = '';
+            cargarCategorias();
+        }
+    }
+
+    async function eliminarCat(id) {
+        if(confirm("¿Eliminar categoría?")) {
+            await _supa.from('categorias').delete().eq('id', id);
+            cargarCategorias();
+        }
+    }
+
+    async function cargarDatos() {
+        const { data } = await _supa.from('productos').select('*, categorias(nombre)').eq('tienda_id', MI_TIENDA_ID).order('nombre');
+        dbLocal = data || [];
+        renderizar(dbLocal);
+    }
+
+    function renderizar(items) {
+        const container = document.getElementById('contenedor-productos');
+        if(!container) return;
+        container.innerHTML = items.map(p => {
+            const bCls = p.stock_actual <= 0 ? 'st-out' : (p.stock_actual < 5 ? 'st-low' : 'st-ok');
+            return `<div class="product-card d-flex justify-content-between align-items-center">
+                <div onclick="abrirModal('${p.id}')">
+                    <small class="text-muted">${p.categorias?.nombre || 'General'} | SKU: ${p.sku || '-'}</small>
+                    <h6 class="fw-bold m-0">${p.nombre}</h6>
+                    <span class="text-primary fw-bold">$${p.precio_venta}</span>
+                </div>
+                <div class="text-end">
+                    <div class="stock-badge ${bCls}">${p.stock_actual || 0}</div>
+                    <button class="btn-cart mt-2" onclick="registrarVenta('${p.id}')">🛒</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function abrirModal(id = null) {
+        document.getElementById('edit-id').value = id || '';
+        document.getElementById('box-stock').style.display = id ? 'none' : 'block';
+        if(id) {
+            const p = dbLocal.find(x => x.id === id);
+            document.getElementById('p-sku').value = p.sku;
+            document.getElementById('p-nombre').value = p.nombre;
+            document.getElementById('p-categoria').value = p.categoria_id;
+            document.getElementById('p-costo').value = p.precio_costo;
+            document.getElementById('p-precio').value = p.precio_venta;
+        } else { 
+            document.querySelectorAll('#modalProducto .form-control').forEach(i => i.value = ''); 
+        }
+        modalProd.show();
+    }
+
+    function abrirModalCategorias() { modalCat.show(); }
+
+    async function guardar() {
+        const id = document.getElementById('edit-id').value;
+        const obj = {
+            sku: document.getElementById('p-sku').value,
+            nombre: document.getElementById('p-nombre').value,
+            categoria_id: document.getElementById('p-categoria').value || null,
+            precio_costo: parseFloat(document.getElementById('p-costo').value) || 0,
+            precio_venta: parseFloat(document.getElementById('p-precio').value) || 0,
+            tienda_id: MI_TIENDA_ID
+        };
+        if (id) { await _supa.from('productos').update(obj).eq('id', id); }
+        else { 
+            obj.stock_actual = parseInt(document.getElementById('p-stock').value) || 0;
+            await _supa.from('productos').insert([obj]); 
+        }
+        modalProd.hide(); init();
+    }
+
+    async function registrarVenta(id) {
+        const cant = prompt("¿Unidades vendidas?");
+        if (cant > 0) {
+            await _supa.from('movimientos_inventario').insert([{
+                producto_id: id, cantidad: parseInt(cant), tipo_movimiento: 'salida', motivo: 'Venta rápida', tienda_id: MI_TIENDA_ID
+            }]);
+            init();
+        }
+    }
+
+    function filtrar(t) {
+        const res = dbLocal.filter(p => p.nombre.toLowerCase().includes(t.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(t.toLowerCase())));
+        renderizar(res);
+    }
+
+    window.onload = verificarSesion;
+</script>
 </body>
 </html>
