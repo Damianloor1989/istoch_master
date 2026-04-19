@@ -32,19 +32,26 @@
 
     <div id="app-principal" style="display:none;">
         <div class="app-header">
-            <div class="container d-flex justify-content-between align-items-center mb-2">
-                <div>
-                    <h3 class="fw-bold m-0 text-primary" id="nombre-tienda-display">Cargando...</h3>
-                    <button class="btn btn-link btn-sm p-0 text-decoration-none" onclick="abrirModalCategorias()">⚙️ Gestionar Categorías</button>
-                </div>
-                <div>
-                    <button class="btn btn-sm btn-outline-danger me-2" onclick="logout()">Salir</button>
-                    <button class="btn btn-light rounded-circle" onclick="init()">🔄</button>
-                </div>
-            </div>
-            <div class="container">
-                <input type="text" id="buscador" class="form-control" placeholder="Buscar producto o SKU..." oninput="filtrar(this.value)">
-            </div>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="fw-bold m-0 text-primary text-truncate" id="nombre-tienda-display" style="max-width: 70%;">
+                Cargando...
+            </h3>
+            <button class="btn btn-sm btn-outline-danger" onclick="logout()">Salir</button>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <button class="btn btn-link btn-sm p-0 text-decoration-none fw-bold" onclick="abrirModalCategorias()">
+                ⚙️ Categorías
+            </button>
+            <button class="btn btn-light btn-sm rounded-pill px-3" onclick="init()">
+                🔄 Actualizar
+            </button>
+        </div>
+
+        <input type="text" id="buscador" class="form-control shadow-sm" placeholder="Buscar producto..." oninput="filtrar(this.value)">
+    </div>
+</div>
         </div>
         <div class="container mt-3" id="contenedor-productos"></div>
         <button class="fab" onclick="abrirModal()">+</button>
