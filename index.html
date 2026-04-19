@@ -112,22 +112,16 @@
         const modalCat = new bootstrap.Modal(document.getElementById('modalCategorias'));
 
         async function verificarSesion() {
-            const { data: { session } } = await _supa.auth.getSession();
-            if (session) {
-                const { data: tienda, error } = await _supa
-                    .from('tiendas')
-                    .select('*')
-                    .eq('owner_id', session.user.id)
-                    .single();
-
-                if (tienda) {
-                    MI_TIENDA_ID = tienda.id;
-                    const el = document.getElementById('nombre-tienda-display');
-                    if (el) el.innerText = "📦 " + (tienda.nombre_comercial || "Mi Negocio");
-
-                    document.getElementById('pantalla-login').style.display = 'none';
-                    document.getElementById('app-principal').style.display = 'block';
-                    init();
+    const { data: { session } } = await _supa.auth.getSession();
+    
+    if (session && session.user) {
+        // ... (resto del código para cargar la tienda)
+    } else {
+        // Si no hay sesión, nos aseguramos de mostrar el login
+        document.getElementById('pantalla-login').style.display = 'block';
+        document.getElementById('app-principal').style.display = 'none';
+    }
+}
                 } else {
                     alert("No tienes una tienda asignada.");
                     logout();
