@@ -117,6 +117,7 @@
 
                 if (tienda) {
                     MI_TIENDA_ID = tienda.id;
+                    document.getElementById('nombre-tienda-display').innerText = "📦 " + tienda.nombre_comercial;
                     document.getElementById('pantalla-login').style.display = 'none';
                     document.getElementById('app-principal').style.display = 'block';
                     init();
