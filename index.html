@@ -104,16 +104,17 @@
             .single();
 
        if (tienda) {
-    MI_TIENDA_ID = tienda.id;
-    
-    // Usamos un pequeño retraso para asegurar que el HTML esté listo
-    setTimeout(() => {
-        const displayNombre = document.getElementById('nombre-tienda-display');
-        if (displayNombre) {
-            displayNombre.innerText = "📦 " + (tienda.nombre_comercial || "Sin Nombre");
-            console.log("Nombre de tienda cargado:", tienda.nombre_comercial);
-        }
-    }, 100);
+    // Dentro de verificarSesion, justo después de: if (tienda) {
+MI_TIENDA_ID = tienda.id;
+
+// Forzamos un pequeño retraso para asegurar que el HTML cargó bien
+setTimeout(() => {
+    const el = document.getElementById('nombre-tienda-display');
+    if (el) {
+        el.innerText = "📦 " + (tienda.nombre_comercial || "Tienda Master");
+        console.log("Tienda cargada:", tienda.nombre_comercial);
+    }
+}, 300);
 
     document.getElementById('pantalla-login').style.display = 'none';
     document.getElementById('app-principal').style.display = 'block';
