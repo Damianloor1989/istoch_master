@@ -103,14 +103,7 @@
             .eq('owner_id', session.user.id)
             .single();
 
-       async function verificarSesion() {
-    const { data: { session } } = await _supa.auth.getSession();
-    if (session) {
-        const { data: tienda, error } = await _supa
-            .from('tiendas')
-            .select('*')
-            .eq('owner_id', session.user.id)
-            .single();
+
 
         if (tienda) {
             MI_TIENDA_ID = tienda.id;
