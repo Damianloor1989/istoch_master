@@ -103,21 +103,44 @@
             .eq('owner_id', session.user.id)
             .single();
 
-       if (tienda) {
-    // Dentro de verificarSesion, justo después de: if (tienda) {
-MI_TIENDA_ID = tienda.id;
+       async function verificarSesion() {
+    const { data: { session } } = await _supa.auth.getSession();
+    if (session) {
+        const { data: tienda, error } = await _supa
+            .from('tiendas')
+            .select('*')
+            .eq('owner_id', session.user.id)
+            .single();
 
-// Forzamos un pequeño retraso para asegurar que el HTML cargó bien
-setTimeout(() => {
-    const el = document.getElementById('nombre-tienda-display');
-    if (el) {
-        el.innerText = "📦 " + (tienda.nombre_comercial || "Tienda Master");
-        console.log("Tienda cargada:", tienda.nombre_comercial);
+        if (tienda) {
+            MI_TIENDA_ID = tienda.id;
+            
+            // Función para forzar el pintado del nombre
+            const actualizarNombreUI = () => {
+                const el = document.getElementById('nombre-tienda-display');
+                if (el) {
+                    el.innerText = "📦 " + (tienda.nombre_comercial || "Tienda Master");
+                    console.log("Nombre pintado con éxito");
+                } else {
+                    // Si aún no existe el elemento, reintentar en 100ms
+                    setTimeout(actualizarNombreUI, 100);
+                }
+            };
+
+            document.getElementById('pantalla-login').style.display = 'none';
+            document.getElementById('app-principal').style.display = 'block';
+            
+            actualizarNombreUI(); // Llamamos a la función de pintado forzado
+            init();
+        } else {
+            alert("No tienes una tienda configurada.");
+            logout();
+        }
+    } else {
+        document.getElementById('pantalla-login').style.display = 'block';
+        document.getElementById('app-principal').style.display = 'none';
     }
-}, 300);
-
-    document.getElementById('pantalla-login').style.display = 'none';
-    document.getElementById('app-principal').style.display = 'block';
+}
     init();
 }
         } else {
