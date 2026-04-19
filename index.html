@@ -124,14 +124,11 @@
             // Función para forzar el pintado del nombre
             const actualizarNombreUI = () => {
                 const el = document.getElementById('nombre-tienda-display');
-                if (el) {
-                    el.innerText = "📦 " + (tienda.nombre_comercial || "Tienda Master");
-                    console.log("Nombre pintado con éxito");
-                } else {
-                    // Si aún no existe el elemento, reintentar en 100ms
-                    setTimeout(actualizarNombreUI, 100);
-                }
-            };
+if (el) {
+    el.innerText = "📦 " + (tienda.nombre_comercial || "Tienda Sin Nombre");
+    el.style.color = "red"; // ¡Si ves el nombre en rojo, es que el código llegó!
+    console.log("Datos de la tienda:", tienda);
+}
 
             document.getElementById('pantalla-login').style.display = 'none';
             document.getElementById('app-principal').style.display = 'block';
