@@ -94,19 +94,37 @@
         const modalCat = new bootstrap.Modal(document.getElementById('modalCategorias'));
 
         async function verificarSesion() {
-            const { data: { session } } = await _supa.auth.getSession();
-            if (session) {
-                const { data: tienda } = await _supa.from('tiendas').select('*').eq('owner_id', session.user.id).single();
-                if (tienda) {
-                    MI_TIENDA_ID = tienda.id;
-                    document.getElementById('nombre-tienda-display').innerText = "📦 " + tienda.nombre_comercial;
-                    document.getElementById('pantalla-login').style.display = 'none';
-                    document.getElementById('app-principal').style.display = 'block';
-                    init();
-                } else { logout(); }
-            }
-        }
+    const { data: { session } } = await _supa.auth.getSession();
+    if (session) {
+        // Buscamos TODOS los datos de la tienda vinculada al usuario
+        const { data: tienda, error } = await _supa
+            .from('tiendas')
+            .select('*')
+            .eq('owner_id', session.user.id)
+            .single();
 
+        if (tienda) {
+            MI_TIENDA_ID = tienda.id;
+            
+            // ACTUALIZACIÓN AQUÍ: Usamos el nombre comercial de la base de datos
+            const displayNombre = document.getElementById('nombre-tienda-display');
+            if (displayNombre) {
+                displayNombre.innerText = "📦 " + tienda.nombre_comercial;
+            }
+
+            document.getElementById('pantalla-login').style.display = 'none';
+            document.getElementById('app-principal').style.display = 'block';
+            init();
+        } else {
+            console.error("No se encontró tienda para este UID:", session.user.id);
+            alert("Usuario sin tienda vinculada.");
+            logout();
+        }
+    } else {
+        document.getElementById('pantalla-login').style.display = 'block';
+        document.getElementById('app-principal').style.display = 'none';
+    }
+}
         async function login() {
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-pass').value;
