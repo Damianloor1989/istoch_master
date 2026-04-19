@@ -17,6 +17,12 @@
         .fab { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; background: var(--primary); color: white; border-radius: 50%; border: none; font-size: 28px; box-shadow: 0 4px 12px rgba(29,99,255,0.3); z-index: 1001; }
         .btn-cart { border: none; background: #f0f4ff; color: #1d63ff; border-radius: 10px; padding: 8px; font-size: 1.2rem; }
         #pantalla-login { max-width: 400px; margin: 100px auto; padding: 20px; }
+        #nombre-tienda-display {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Si el nombre es muy largo, pone "..." al final */
+    min-height: 1.5em; /* Asegura que el espacio exista aunque esté vacío */
+}
     </style>
 </head>
 <body>
