@@ -106,22 +106,29 @@
     const modalCat = new bootstrap.Modal(document.getElementById('modalCategorias'));
 
     async function verificarSesion() {
-        const { data: { session } } = await _supa.auth.getSession();
-        if (session) {
-            const { data: tienda, error } = await _supa
-                .from('tiendas')
-                .select('*')
-                .eq('owner_id', session.user.id)
-                .single();
+    const { data: { session } } = await _supa.auth.getSession();
+    if (session) {
+        const { data: tienda } = await _supa
+            .from('tiendas')
+            .select('nombre_comercial, id')
+            .eq('owner_id', session.user.id)
+            .single();
 
-            if (tienda) {
-                MI_TIENDA_ID = tienda.id;
-                
-                // Función segura para pintar el nombre
-                const el = document.getElementById('nombre-tienda-display');
-                if (el) {
-                    el.innerText = "📦 " + (tienda.nombre_comercial || "Mi Tienda");
-                }
+        if (tienda) {
+            MI_TIENDA_ID = tienda.id;
+            // Mostramos el nombre de la tienda directamente
+            const el = document.getElementById('nombre-tienda-display');
+            if (el) el.innerText = "📦 " + tienda.nombre_comercial;
+
+            document.getElementById('pantalla-login').style.display = 'none';
+            document.getElementById('app-principal').style.display = 'block';
+            init();
+        } else {
+            alert("No se encontró una tienda vinculada.");
+            logout();
+        }
+    }
+}
 
                 document.getElementById('pantalla-login').style.display = 'none';
                 document.getElementById('app-principal').style.display = 'block';
