@@ -27,6 +27,8 @@
         .btn-cart { border: none; background: #f0f4ff; color: #1d63ff; border-radius: 10px; padding: 8px; font-size: 1.2rem; }
         #pantalla-login { max-width: 400px; margin: 80px auto; padding: 20px; }
         #nombre-tienda-display { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%; }
+        .cat-item { border-bottom: 1px solid #eee; padding: 10px 0; }
+        .cat-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -88,13 +90,17 @@
     <div class="modal fade" id="modalCategorias" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered p-3">
             <div class="modal-content border-0" style="border-radius: 20px;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="fw-bold text-primary m-0">Mis Categorías</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
                 <div class="modal-body p-4">
-                    <h5 class="fw-bold mb-3 text-primary">Mis Categorías</h5>
-                    <div class="input-group mb-3">
-                        <input type="text" id="nueva-cat-nombre" class="form-control shadow-none" placeholder="Nombre...">
+                    <div class="input-group mb-4">
+                        <input type="text" id="nueva-cat-nombre" class="form-control shadow-none" placeholder="Nueva categoría...">
                         <button class="btn btn-primary" onclick="crearCategoria()">Añadir</button>
                     </div>
-                    <ul class="list-group list-group-flush" id="lista-categorias-gestion"></ul>
+                    <div id="lista-categorias-container" style="max-height: 300px; overflow-y: auto;">
+                        </div>
                 </div>
             </div>
         </div>
@@ -106,6 +112,8 @@
         let dbLocal = []; 
         let MI_TIENDA_ID = null;
         let TIENDA_NOMBRE = "Mi Negocio";
+        
+        // Inicializar Modales
         const modalProd = new bootstrap.Modal(document.getElementById('modalProducto'));
         const modalCat = new bootstrap.Modal(document.getElementById('modalCategorias'));
 
@@ -140,38 +148,65 @@
             window.location.reload();
         }
 
-        async function init() { await cargarCategorias(); await cargarDatos(); }
+        async function init() { 
+            await cargarCategorias(); 
+            await cargarDatos(); 
+        }
+
+        // LÓGICA DE CATEGORÍAS
+        function abrirModalCategorias() {
+            modalCat.show();
+            cargarCategorias();
+        }
 
         async function cargarCategorias() {
-            const { data } = await _supa.from('categorias').select('*').eq('tienda_id', MI_TIENDA_ID).order('nombre');
+            const { data, error } = await _supa.from('categorias')
+                .select('*')
+                .eq('tienda_id', MI_TIENDA_ID)
+                .order('nombre');
+
+            if (error) return;
+
+            // Rellenar el Select del producto
             const select = document.getElementById('p-categoria');
-            const lista = document.getElementById('lista-categorias-gestion');
             select.innerHTML = '<option value="">Sin categoría</option>';
-            lista.innerHTML = '';
+            
+            // Rellenar la lista del modal de gestión
+            const listaContainer = document.getElementById('lista-categorias-container');
+            listaContainer.innerHTML = '';
+
             data?.forEach(c => {
                 select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
-                lista.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">${c.nombre} <button class="btn btn-sm btn-light" onclick="eliminarCat('${c.id}')">🗑️</button></li>`;
+                listaContainer.innerHTML += `
+                    <div class="d-flex justify-content-between align-items-center cat-item">
+                        <span>${c.nombre}</span>
+                        <button class="btn btn-sm btn-light text-danger" onclick="eliminarCat('${c.id}')">🗑️</button>
+                    </div>`;
             });
         }
 
         async function crearCategoria() {
             const nom = document.getElementById('nueva-cat-nombre').value;
-            if (nom) {
-                await _supa.from('categorias').insert([{ nombre: nom, tienda_id: MI_TIENDA_ID }]);
-                document.getElementById('nueva-cat-nombre').value = '';
-                cargarCategorias();
-            }
+            if (!nom) return;
+            
+            await _supa.from('categorias').insert([{ nombre: nom, tienda_id: MI_TIENDA_ID }]);
+            document.getElementById('nueva-cat-nombre').value = '';
+            await cargarCategorias();
         }
 
         async function eliminarCat(id) {
-            if(confirm("¿Eliminar categoría?")) {
+            if(confirm("¿Eliminar categoría? Esto no borrará los productos, pero quedarán sin categoría.")) {
                 await _supa.from('categorias').delete().eq('id', id);
-                cargarCategorias();
+                await cargarCategorias();
             }
         }
 
+        // LÓGICA DE PRODUCTOS
         async function cargarDatos() {
-            const { data } = await _supa.from('productos').select('*, categorias(nombre)').eq('tienda_id', MI_TIENDA_ID).order('nombre');
+            const { data } = await _supa.from('productos')
+                .select('*, categorias(nombre)')
+                .eq('tienda_id', MI_TIENDA_ID)
+                .order('nombre');
             dbLocal = data || [];
             renderizar(dbLocal);
         }
@@ -180,7 +215,8 @@
             const container = document.getElementById('contenedor-productos');
             container.innerHTML = items.map(p => {
                 const bCls = p.stock_actual <= 0 ? 'st-out' : (p.stock_actual < 5 ? 'st-low' : 'st-ok');
-                return `<div class="product-card d-flex justify-content-between align-items-center">
+                return `
+                <div class="product-card d-flex justify-content-between align-items-center">
                     <div onclick="abrirModal('${p.id}')" style="flex:1">
                         <small class="text-muted">${p.categorias?.nombre || 'General'} | SKU: ${p.sku || '-'}</small>
                         <h6 class="fw-bold m-0">${p.nombre}</h6>
@@ -198,15 +234,16 @@
             document.getElementById('edit-id').value = id || '';
             document.getElementById('box-stock').style.display = id ? 'none' : 'block';
             document.getElementById('btn-eliminar').style.display = id ? 'block' : 'none';
+            
             if(id) {
                 const p = dbLocal.find(x => x.id === id);
                 document.getElementById('p-sku').value = p.sku;
                 document.getElementById('p-nombre').value = p.nombre;
-                document.getElementById('p-categoria').value = p.categoria_id;
+                document.getElementById('p-categoria').value = p.categoria_id || '';
                 document.getElementById('p-costo').value = p.precio_costo;
                 document.getElementById('p-precio').value = p.precio_venta;
             } else { 
-                document.querySelectorAll('#modalProducto .form-control').forEach(i => i.value = ''); 
+                document.querySelectorAll('#modalProducto .form-control, #modalProducto .form-select').forEach(i => i.value = ''); 
             }
             modalProd.show();
         }
@@ -226,14 +263,16 @@
                 obj.stock_actual = parseInt(document.getElementById('p-stock').value) || 0;
                 await _supa.from('productos').insert([obj]); 
             }
-            modalProd.hide(); init();
+            modalProd.hide(); 
+            init();
         }
 
         async function eliminarProducto() {
             const id = document.getElementById('edit-id').value;
             if(confirm("¿Eliminar producto?")) {
                 await _supa.from('productos').delete().eq('id', id);
-                modalProd.hide(); init();
+                modalProd.hide(); 
+                init();
             }
         }
 
@@ -241,14 +280,21 @@
             const cant = prompt("¿Cantidad vendida?");
             if (cant > 0) {
                 await _supa.from('movimientos_inventario').insert([{
-                    producto_id: id, cantidad: parseInt(cant), tipo_movimiento: 'salida', motivo: 'Venta', tienda_id: MI_TIENDA_ID
+                    producto_id: id, 
+                    cantidad: parseInt(cant), 
+                    tipo_movimiento: 'salida', 
+                    motivo: 'Venta', 
+                    tienda_id: MI_TIENDA_ID
                 }]);
                 init();
             }
         }
 
         function filtrar(t) {
-            const res = dbLocal.filter(p => p.nombre.toLowerCase().includes(t.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(t.toLowerCase())));
+            const res = dbLocal.filter(p => 
+                p.nombre.toLowerCase().includes(t.toLowerCase()) || 
+                (p.sku && p.sku.toLowerCase().includes(t.toLowerCase()))
+            );
             renderizar(res);
         }
 
