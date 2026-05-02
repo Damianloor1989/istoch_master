@@ -210,6 +210,13 @@
             dbLocal = data || [];
             renderizar(dbLocal);
         }
+        // Función global para avisos de Stock Master Pro
+function notify(mensaje) {
+    // Aquí puedes usar el modal que creamos antes o un SweetAlert
+    console.log("Notificación App:", mensaje);
+    // Por ahora, simulamos un alert con el nombre
+    alert("Stock Master Pro \n\n" + mensaje);
+}
 
         function renderizar(items) {
             const container = document.getElementById('contenedor-productos');
