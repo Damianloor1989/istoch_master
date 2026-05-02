@@ -125,8 +125,8 @@ async function registrarMovimiento(productoId, tipoOriginal) {
     // --- ÁREA DE PRUEBA ---
     // Si 'INGRESO' falla, prueba cambiarlo por 'ENTRADA' o 'IN'
     // Si 'EGRESO' falla, prueba cambiarlo por 'SALIDA' o 'OUT'
-    const VALOR_ENTRADA = 'INGRESO'; 
-    const VALOR_SALIDA = 'EGRESO';
+    const VALOR_ENTRADA = 'ENTRADA'; 
+    const VALOR_SALIDA = 'SALIDA';
     // -----------------------
 
     const TIPO_DB = tipoOriginal === 'Entrada' ? VALOR_ENTRADA : VALOR_SALIDA;
