@@ -111,30 +111,25 @@ function notify(titulo, mensaje, icono = 'info') {
 
 // 2. FUNCIÓN REGISTRAR MOVIMIENTO (Versión Profesional)
 /**
- * Registra un movimiento de inventario y actualiza el stock del producto.
- * @param {string} productoId - El UUID del producto en Supabase.
- * @param {string} tipoOriginal - El tipo de movimiento ('Entrada' o 'Salida').
+ * Versión optimizada: Solo registra el movimiento.
+ * La base de datos (Trigger) se encarga de actualizar el stock automáticamente.
  */
 async function registrarMovimiento(productoId, tipoOriginal) {
     if (!MI_TIENDA_ID) {
-        notify("Error", "No se detectó el ID de la tienda.", "error");
+        notify("Configuración", "ID de tienda no encontrado.", "error");
         return;
     }
 
     const p = dbLocal.find(x => x.id === productoId);
-    
-    // Mapeo de nombres para la interfaz vs base de datos
     const esEntrada = tipoOriginal === 'Entrada';
     
-    // IMPORTANTE: Ajustamos los valores para que cumplan con el CHECK CONSTRAINT de SQL
+    // Normalizamos para cumplir con el CHECK CONSTRAINT que vimos antes
     const TIPO_DB = esEntrada ? 'INGRESO' : 'EGRESO'; 
-    const TITULO_MODAL = esEntrada ? 'Registrar Ingreso' : 'Registrar Venta';
 
     const { value: cantStr } = await Swal.fire({
-        title: TITULO_MODAL,
-        html: `<p><b>Producto:</b> ${p.nombre}</p>`,
+        title: esEntrada ? 'Añadir Stock' : 'Registrar Venta',
         input: 'number',
-        inputLabel: 'Cantidad',
+        inputLabel: `Cantidad para ${p.nombre}`,
         inputValue: 1,
         showCancelButton: true,
         confirmButtonColor: esEntrada ? '#28a745' : '#1d63ff',
@@ -146,42 +141,38 @@ async function registrarMovimiento(productoId, tipoOriginal) {
     if (!cantStr) return;
     const cant = parseInt(cantStr);
 
+    // Validación local rápida
     if (!esEntrada && p.stock_actual < cant) {
-        notify("Atención", "No hay stock suficiente.", "warning");
+        notify("Stock Bajo", "No hay suficiente mercancía.", "warning");
         return;
     }
 
-    const nuevoStock = esEntrada ? p.stock_actual + cant : p.stock_actual - cant;
-
-    Swal.fire({ title: 'Procesando...', didOpen: () => { Swal.showLoading(); } });
+    Swal.fire({ title: 'Sincronizando con Supabase...', didOpen: () => { Swal.showLoading(); } });
 
     try {
-        // Enviar a Supabase con el valor normalizado 'INGRESO' o 'EGRESO'
+        // SOLO INSERTAMOS EL MOVIMIENTO
+        // Tu Trigger de SQL en Supabase detectará este 'insert' 
+        // y actualizará la tabla 'productos' por ti.
         const { error: errMov } = await _supa.from('movimientos_inventario').insert([{
             producto_id: productoId,
             cantidad: cant,
-            tipo_movimiento: TIPO_DB, // Aquí aplicamos el cambio para evitar el error de constraint
-            motivo: esEntrada ? 'Reposición' : 'Venta',
+            tipo_movimiento: TIPO_DB,
             tienda_id: MI_TIENDA_ID,
             stock_anterior: p.stock_actual,
-            stock_nuevo: nuevoStock,
+            stock_nuevo: esEntrada ? p.stock_actual + cant : p.stock_actual - cant,
             costo_unitario_momento: p.precio_costo || 0
         }]);
 
-        if (errMov) throw new Error(`Error en movimiento: ${errMov.message}`);
+        if (errMov) throw errMov;
 
-        const { error: errProd } = await _supa.from('productos')
-            .update({ stock_actual: nuevoStock })
-            .eq('id', productoId);
-
-        if (errProd) throw new Error(`Error en producto: ${errProd.message}`);
-
-        Swal.fire({ icon: 'success', title: '¡Hecho!', timer: 1000, showConfirmButton: false });
-        init(); 
+        Swal.fire({ icon: 'success', title: 'Movimiento Registrado', timer: 1500, showConfirmButton: false });
+        
+        // Refrescamos la interfaz para ver el cambio que hizo el Trigger
+        setTimeout(() => { init(); }, 500); 
 
     } catch (error) {
-        console.error(error);
-        notify("Error de Base de Datos", error.message, "error");
+        console.error("Error detectado:", error);
+        notify("Error de Base de Datos", "Revisa si el Trigger de stock está activo en Supabase.", "error");
     }
 }
 
