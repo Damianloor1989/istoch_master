@@ -111,74 +111,60 @@ function notify(titulo, mensaje, icono = 'info') {
 
 // 2. FUNCIÓN REGISTRAR MOVIMIENTO (Versión Profesional)
 /**
- * Versión Definitiva: Registro de movimiento con depuración técnica.
+ * Función de Diagnóstico para Stock Master Pro.
+ * Ayuda a identificar el valor correcto para la columna tipo_movimiento.
  */
 async function registrarMovimiento(productoId, tipoOriginal) {
     if (!MI_TIENDA_ID) {
-        notify("Falta Configuración", "No se encontró el ID de la tienda. Por favor inicia sesión de nuevo.", "error");
+        notify("Error", "No hay ID de tienda.", "error");
         return;
     }
 
     const p = dbLocal.find(x => x.id === productoId);
-    const esEntrada = tipoOriginal === 'Entrada';
     
-    // IMPORTANTE: Aseguramos que estos valores coincidan con tu base de datos
-    const TIPO_DB = esEntrada ? 'INGRESO' : 'EGRESO'; 
+    // --- ÁREA DE PRUEBA ---
+    // Si 'INGRESO' falla, prueba cambiarlo por 'ENTRADA' o 'IN'
+    // Si 'EGRESO' falla, prueba cambiarlo por 'SALIDA' o 'OUT'
+    const VALOR_ENTRADA = 'INGRESO'; 
+    const VALOR_SALIDA = 'EGRESO';
+    // -----------------------
+
+    const TIPO_DB = tipoOriginal === 'Entrada' ? VALOR_ENTRADA : VALOR_SALIDA;
 
     const { value: cantStr } = await Swal.fire({
-        title: esEntrada ? '📥 Registrar Entrada' : '📤 Registrar Salida',
-        html: `<b>Producto:</b> ${p.nombre}<br><small>Stock actual: ${p.stock_actual}</small>`,
+        title: `Probando valor: ${TIPO_DB}`,
         input: 'number',
         inputValue: 1,
         showCancelButton: true,
-        confirmButtonText: 'Confirmar',
-        cancelButtonText: 'Cancelar',
-        inputValidator: (value) => {
-            if (!value || value <= 0) return 'La cantidad debe ser mayor a 0';
-        }
+        confirmButtonText: 'Probar envío'
     });
 
     if (!cantStr) return;
     const cant = parseInt(cantStr);
 
-    Swal.fire({ title: 'Comunicando con Supabase...', didOpen: () => { Swal.showLoading(); } });
-
     try {
-        // Intentamos la inserción
-        const { data, error } = await _supa.from('movimientos_inventario').insert([{
+        const { error } = await _supa.from('movimientos_inventario').insert([{
             producto_id: productoId,
             cantidad: cant,
-            tipo_movimiento: TIPO_DB,
+            tipo_movimiento: TIPO_DB, // Este es el campo que causa el Código 23514
             tienda_id: MI_TIENDA_ID,
             stock_anterior: p.stock_actual,
-            stock_nuevo: esEntrada ? p.stock_actual + cant : p.stock_actual - cant,
-            costo_unitario_momento: p.precio_costo || 0,
-            motivo: esEntrada ? 'Abastecimiento' : 'Venta'
-        }]).select();
+            stock_nuevo: tipoOriginal === 'Entrada' ? p.stock_actual + cant : p.stock_actual - cant,
+            costo_unitario_momento: p.precio_costo || 0
+        }]);
 
-        if (error) {
-            // Si hay error, mostramos el código técnico para saber qué columna falla
-            console.error("Error técnico de Supabase:", error);
-            throw new Error(`Código: ${error.code} - ${error.message}`);
-        }
+        if (error) throw error;
 
-        await Swal.fire({
-            icon: 'success',
-            title: '¡Movimiento guardado!',
-            text: `El stock se actualizará automáticamente.`,
-            timer: 2000,
-            showConfirmButton: false
-        });
-
-        init(); // Recargamos la lista de productos
+        Swal.fire({ icon: 'success', title: '¡Valor aceptado!' });
+        init();
 
     } catch (err) {
-        // Esta es la alerta que estás viendo, pero ahora dirá el error real abajo
+        // Si sale el error 23514, significa que TIPO_DB no es la palabra correcta
         Swal.fire({
             icon: 'error',
-            title: 'Error de Base de Datos',
-            text: err.message,
-            footer: 'Verifica los Triggers y Constraints en el panel de SQL.'
+            title: 'Valor rechazado',
+            text: `La base de datos no acepta el valor: "${TIPO_DB}"`,
+            footer: 'Prueba cambiando el código a "ENTRADA" o "IN".'
         });
     }
 }
