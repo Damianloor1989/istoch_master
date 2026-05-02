@@ -111,61 +111,53 @@ function notify(titulo, mensaje, icono = 'info') {
 
 // 2. FUNCIÓN REGISTRAR MOVIMIENTO (Versión Profesional)
 /**
- * Función de Diagnóstico para Stock Master Pro.
- * Ayuda a identificar el valor correcto para la columna tipo_movimiento.
+ * Registra el movimiento enviando solo lo esencial.
+ * Esto evita conflictos con las restricciones (constraints) de la tabla.
  */
 async function registrarMovimiento(productoId, tipoOriginal) {
     if (!MI_TIENDA_ID) {
-        notify("Error", "No hay ID de tienda.", "error");
+        notify("Error", "ID de tienda no detectado.", "error");
         return;
     }
 
     const p = dbLocal.find(x => x.id === productoId);
     
-    // --- ÁREA DE PRUEBA ---
-    // Si 'INGRESO' falla, prueba cambiarlo por 'ENTRADA' o 'IN'
-    // Si 'EGRESO' falla, prueba cambiarlo por 'SALIDA' o 'OUT'
-    const VALOR_ENTRADA = 'IN'; 
-    const VALOR_SALIDA = 'OUT';
-    // -----------------------
-
-    const TIPO_DB = tipoOriginal === 'Entrada' ? VALOR_ENTRADA : VALOR_SALIDA;
+    // Mapeo simplificado: Si el error persiste, probaremos con números (1 para ingreso, 2 para egreso)
+    const TIPO_DB = tipoOriginal === 'Entrada' ? 'INGRESO' : 'EGRESO';
 
     const { value: cantStr } = await Swal.fire({
-        title: `Probando valor: ${TIPO_DB}`,
+        title: tipoOriginal === 'Entrada' ? 'Añadir Stock' : 'Registrar Venta',
         input: 'number',
         inputValue: 1,
         showCancelButton: true,
-        confirmButtonText: 'Probar envío'
+        confirmButtonText: 'Confirmar'
     });
 
     if (!cantStr) return;
     const cant = parseInt(cantStr);
 
+    Swal.fire({ title: 'Sincronizando...', didOpen: () => { Swal.showLoading(); } });
+
     try {
+        // Enviamos solo las columnas críticas que vimos en tu esquema
         const { error } = await _supa.from('movimientos_inventario').insert([{
             producto_id: productoId,
-            cantidad: cant,
-            tipo_movimiento: TIPO_DB, // Este es el campo que causa el Código 23514
             tienda_id: MI_TIENDA_ID,
-            stock_anterior: p.stock_actual,
-            stock_nuevo: tipoOriginal === 'Entrada' ? p.stock_actual + cant : p.stock_actual - cant,
+            cantidad: cant,
+            tipo_movimiento: TIPO_DB,
+            // Eliminamos stock_anterior y stock_nuevo para que el Trigger los calcule solo
             costo_unitario_momento: p.precio_costo || 0
         }]);
 
         if (error) throw error;
 
-        Swal.fire({ icon: 'success', title: '¡Valor aceptado!' });
-        init();
+        Swal.fire({ icon: 'success', title: '¡Éxito!', timer: 1000, showConfirmButton: false });
+        setTimeout(() => { init(); }, 500);
 
     } catch (err) {
-        // Si sale el error 23514, significa que TIPO_DB no es la palabra correcta
-        Swal.fire({
-            icon: 'error',
-            title: 'Valor rechazado',
-            text: `La base de datos no acepta el valor: "${TIPO_DB}"`,
-            footer: 'Prueba cambiando el código a "ENTRADA" o "IN".'
-        });
+        console.error("Error detallado:", err);
+        // Si el error persiste, te mostrará qué columna específica está fallando
+        notify("Fallo en Tabla Movimientos", err.message, "error");
     }
 }
 
