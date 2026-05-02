@@ -276,19 +276,44 @@
             }
         }
 
-        async function registrarVenta(id) {
-            const cant = prompt("¿Cantidad vendida?");
-            if (cant > 0) {
-                await _supa.from('movimientos_inventario').insert([{
-                    producto_id: id, 
-                    cantidad: parseInt(cant), 
-                    tipo_movimiento: 'salida', 
-                    motivo: 'Venta', 
-                    tienda_id: MI_TIENDA_ID
-                }]);
-                init();
-            }
-        }
+        // Función para procesar la venta al pulsar el carrito
+async function procesarVenta(productoId, stockActual, nombreProducto) {
+    // 1. Pedir la cantidad con un mensaje personalizado
+    const cantidadVenta = prompt(`Stock Master Pro \n\n ¿Cuántas unidades de "${nombreProducto}" se vendieron?`, "1");
+
+    // Validaciones básicas
+    if (cantidadVenta === null || cantidadVenta <= 0) return; 
+    
+    const cantidad = parseInt(cantidadVenta);
+
+    if (cantidad > stockActual) {
+        alert("Stock Master Pro: No tienes suficiente stock para esta venta.");
+        return;
+    }
+
+    // 2. Calcular el nuevo stock
+    const nuevoStock = stockActual - cantidad;
+
+    try {
+        // 3. ACTUALIZAR EN SUPABASE
+        // IMPORTANTE: Al actualizar 'stock_actual', el TRIGGER que creamos 
+        // registrará automáticamente el movimiento en la otra tabla.
+        const { data, error } = await _supabase
+            .from('productos')
+            .update({ stock_actual: nuevoStock })
+            .eq('id', productoId);
+
+        if (error) throw error;
+
+        // 4. Mensaje de éxito y recargar la interfaz
+        alert(`Stock Master Pro: Venta registrada con éxito. Nuevo stock: ${nuevoStock}`);
+        location.reload(); // Recarga para ver los cambios
+
+    } catch (err) {
+        console.error("Error en la venta:", err.message);
+        alert("Stock Master Pro: Error al registrar la venta.");
+    }
+}
 
         function filtrar(t) {
             const res = dbLocal.filter(p => 
