@@ -111,6 +111,12 @@ function notify(titulo, mensaje, icono = 'info') {
 
 // 2. FUNCIÓN REGISTRAR MOVIMIENTO (Versión Profesional)
 async function registrarMovimiento(productoId, tipo) {
+    // 1. Verificación de seguridad: ¿Tenemos el ID de la tienda?
+    if (!MI_TIENDA_ID) {
+        notify("Error de Configuración", "No se ha detectado el ID de la tienda. Intenta recargar la página.", "error");
+        return;
+    }
+
     const p = dbLocal.find(x => x.id === productoId);
     
     const config = {
@@ -152,28 +158,36 @@ async function registrarMovimiento(productoId, tipo) {
     });
 
     try {
+        // 2. Registro del movimiento
         const { error: errMov } = await _supa.from('movimientos_inventario').insert([{
             producto_id: productoId,
             cantidad: cant,
             tipo_movimiento: tipo,
             motivo: tipo === 'Entrada' ? 'Reposición' : 'Venta',
-            tienda_id: MI_TIENDA_ID,
+            tienda_id: MI_TIENDA_ID, // Asegúrate que la columna se llame exactamente así en Supabase
             stock_anterior: p.stock_actual,
             stock_nuevo: nuevoStock,
-            costo_unitario_momento: p.precio_costo
+            costo_unitario_momento: p.precio_costo || 0
         }]);
 
-        if (errMov) throw errMov;
+        if (errMov) {
+            console.error("Error en movimientos_inventario:", errMov);
+            throw new Error(`Error en movimiento: ${errMov.message}`);
+        }
 
+        // 3. Actualización de la tabla productos
         const { error: errProd } = await _supa.from('productos')
             .update({ stock_actual: nuevoStock })
             .eq('id', productoId);
 
-        if (errProd) throw errProd;
+        if (errProd) {
+            console.error("Error en actualización de productos:", errProd);
+            throw new Error(`Error en producto: ${errProd.message}`);
+        }
 
         Swal.fire({
             title: '¡Éxito!',
-            text: `Inventario actualizado: ${nuevoStock} unidades.`,
+            text: `Inventario actualizado correctamente.`,
             icon: 'success',
             timer: 1500,
             showConfirmButton: false
@@ -182,8 +196,9 @@ async function registrarMovimiento(productoId, tipo) {
         init(); 
 
     } catch (error) {
-        console.error(error);
-        notify("Error", "Hubo un problema con la base de datos.", "error");
+        console.error("Detalle técnico:", error);
+        // Mostramos el error real para identificar si es RLS o nombres de columnas
+        notify("Error de Base de Datos", error.message, "error");
     }
 }
 
