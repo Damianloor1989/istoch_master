@@ -66,10 +66,6 @@
         </div>
         <div class="container mt-3" id="contenedor-productos"></div>
         <button class="fab" onclick="abrirModal()">+</button>
-        <!-- Ejemplo de cómo añadir el botón en tu fila de tabla -->
-<button onclick="añadirStock('${p.id}', '${p.nombre}')" class="btn-add">
-    <i class="fas fa-plus-circle"></i> Añadir
-</button>
     </div>
 
     <div class="modal fade" id="modalProducto" tabindex="-1">
@@ -86,6 +82,10 @@
                         <div class="col-6"><label class="small fw-bold">VENTA $</label><input type="number" id="p-precio" class="form-control" step="0.01"></div>
                         <div class="col-12" id="box-stock"><label class="small fw-bold">STOCK INICIAL</label><input type="number" id="p-stock" class="form-control" value="0"></div>
                     </div>
+                    <!-- Ejemplo de cómo añadir el botón en tu fila de tabla -->
+<button onclick="añadirStock('${p.id}', '${p.nombre}')" class="btn-add">
+    <i class="fas fa-plus-circle"></i> Añadir
+</button>
                     <button class="btn btn-primary w-100 py-3 fw-bold mt-4" onclick="guardar()">Guardar Producto</button>
                     <button class="btn btn-link btn-sm w-100 text-danger mt-2" id="btn-eliminar" style="display:none;" onclick="eliminarProducto()">Eliminar Producto</button>
                 </div>
