@@ -324,6 +324,26 @@ async function registrarVenta(id) {
         }
     }
 }
+        async function agregarMercancia(id) {
+    const { value: cant } = await Swal.fire({
+        title: 'Agregar Cantidad',
+        input: 'number',
+        inputLabel: 'Unidades nuevas',
+        showCancelButton: true
+    });
+
+    if (cant > 0) {
+        const { error } = await _supa.from('movimientos_inventario').insert([{
+            producto_id: id,
+            cantidad: parseInt(cant),
+            tipo_movimiento: 'Entrada', // El trigger hará el resto
+            tienda_id: MI_TIENDA_ID
+        }]);
+
+        if (error) Swal.fire('Error', error.message, 'error');
+        else init(); 
+    }
+}
 
 // Reemplazo de eliminarProducto con confirmación elegante
 async function eliminarProducto() {
