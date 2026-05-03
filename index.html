@@ -325,23 +325,28 @@ const notify = (titulo, texto, icono) => {
 
     if (cant) {
         try {
-            // Asegúrate de que los nombres de las columnas coincidan con Supabase
+            // Enviamos los datos mapeados exactamente al esquema de la imagen image_6a4c1d.png
             const { error } = await _supa.from('movimientos_inventario').insert([{
-                producto_id: id,
-                cantidad: parseInt(cant),
-                tipo_movimiento: 'Venta',
-                tienda_id: MI_TIENDA_ID,
-                fecha: new Date().toISOString() // Opcional: asegura la estampa de tiempo
+                producto_id: id,                  // UUID del producto
+                cantidad: parseInt(cant),         // Aseguramos que sea número (int4)
+                tipo_movimiento: 'Venta',         // Coincide con la lógica del Trigger
+                tienda_id: MI_TIENDA_ID,          // UUID de la tienda activa
+                fecha: new Date().toISOString()   // Estampa de tiempo (timestamptz)
             }]);
 
             if (error) throw error;
-            notify('¡Vendido!', 'Venta registrada con éxito.', 'success');
-            init(); 
+            
+            // Mensaje de éxito y refresco de interfaz
+            notify('¡Vendido!', 'Venta registrada y stock actualizado.', 'success');
+            if (typeof init === 'function') init(); 
+            
         } catch (err) {
-            notify('Error en Venta', err.message, 'error');
+            console.error("Error en Supabase:", err);
+            notify('Error en Venta', `No se pudo registrar: ${err.message}`, 'error');
         }
     }
 }
+        
 
 async function añadirStock(id, nombre) {
     const { value: cantidad } = await Swal.fire({
