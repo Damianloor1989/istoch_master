@@ -344,6 +344,50 @@ async function registrarVenta(id) {
         else init(); 
     }
 }
+        /**
+ * Abre un diálogo para ingresar nuevas existencias a un producto.
+ * @param {string} id - El ID del producto (UUID de Supabase).
+ * @param {string} nombre - El nombre del producto para mostrar en el mensaje.
+ */
+async function añadirStock(id, nombre) {
+    const { value: cantidad } = await Swal.fire({
+        title: `Añadir Stock: ${nombre}`,
+        input: 'number',
+        inputLabel: '¿Cuántas unidades nuevas ingresan?',
+        inputPlaceholder: 'Ej: 10',
+        showCancelButton: true,
+        confirmButtonText: 'Añadir',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#1d63ff',
+        inputValidator: (value) => {
+            if (!value || value <= 0) {
+                return '¡Debes ingresar una cantidad mayor a cero!';
+            }
+        }
+    });
+
+    if (cantidad) {
+        try {
+            // Insertamos el movimiento. El TRIGGER de Supabase hará la suma automáticamente.
+            const { error } = await _supa.from('movimientos_inventario').insert([{
+                producto_id: id,
+                cantidad: parseInt(cantidad),
+                tipo_movimiento: 'Entrada', // Asegúrate que tu Trigger reconozca 'Entrada'
+                tienda_id: MI_TIENDA_ID,
+                motivo: 'Ingreso manual de stock'
+            }]);
+
+            if (error) throw error;
+
+            await Swal.fire('¡Actualizado!', `Se han añadido ${cantidad} unidades.`, 'success');
+            init(); // Recarga la tabla en tu app
+
+        } catch (err) {
+            console.error("Error al añadir stock:", err.message);
+            Swal.fire('Error', 'No se pudo actualizar el stock: ' + err.message, 'error');
+        }
+    }
+}
 
 // Reemplazo de eliminarProducto con confirmación elegante
 async function eliminarProducto() {
