@@ -310,8 +310,7 @@ const notify = (titulo, texto, icono) => {
             }
         }
 
-        // Reemplazo de registrarVenta con entrada de datos moderna
-async function registrarVenta(id) {
+       async function registrarVenta(id) {
     const { value: cant } = await Swal.fire({
         title: 'Registrar Venta',
         input: 'number',
@@ -319,30 +318,57 @@ async function registrarVenta(id) {
         inputValue: 1,
         showCancelButton: true,
         confirmButtonText: 'Vender',
-        cancelButtonText: 'Cancelar',
-        confirmButtonColor: '#1d63ff',
         inputValidator: (value) => {
-            if (!value || value <= 0) {
-                return '¡Debes ingresar una cantidad válida!';
-            }
+            if (!value || value <= 0) return '¡Ingresa una cantidad válida!';
         }
     });
 
     if (cant) {
         try {
+            // Asegúrate de que los nombres de las columnas coincidan con Supabase
             const { error } = await _supa.from('movimientos_inventario').insert([{
                 producto_id: id,
                 cantidad: parseInt(cant),
                 tipo_movimiento: 'Venta',
-                tienda_id: MI_TIENDA_ID
+                tienda_id: MI_TIENDA_ID,
+                fecha: new Date().toISOString() // Opcional: asegura la estampa de tiempo
             }]);
 
             if (error) throw error;
-            
-            notify('¡Vendido!', 'El stock se actualizó correctamente.', 'success');
+            notify('¡Vendido!', 'Venta registrada con éxito.', 'success');
             init(); 
         } catch (err) {
-            notify('Error', err.message, 'error');
+            notify('Error en Venta', err.message, 'error');
+        }
+    }
+}
+
+async function añadirStock(id, nombre) {
+    const { value: cantidad } = await Swal.fire({
+        title: `Añadir Stock: ${nombre}`,
+        input: 'number',
+        inputLabel: 'Unidades nuevas',
+        showCancelButton: true,
+        inputValidator: (value) => {
+            if (!value || value <= 0) return '¡Ingresa una cantidad válida!';
+        }
+    });
+
+    if (cantidad) {
+        try {
+            const { error } = await _supa.from('movimientos_inventario').insert([{
+                producto_id: id,
+                cantidad: parseInt(cantidad),
+                tipo_movimiento: 'Entrada',
+                tienda_id: MI_TIENDA_ID,
+                motivo: 'Ingreso manual'
+            }]);
+
+            if (error) throw error;
+            notify('¡Añadido!', 'El stock se ha actualizado.', 'success');
+            init();
+        } catch (err) {
+            notify('Error en Entrada', err.message, 'error');
         }
     }
 }
