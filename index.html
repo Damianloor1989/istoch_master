@@ -348,61 +348,12 @@ const notify = (titulo, texto, icono) => {
 }
         
 
-async function añadirStock(id, nombre) {
-    const { value: cantidad } = await Swal.fire({
-        title: `Añadir Stock: ${nombre}`,
-        input: 'number',
-        inputLabel: 'Unidades nuevas',
-        showCancelButton: true,
-        inputValidator: (value) => {
-            if (!value || value <= 0) return '¡Ingresa una cantidad válida!';
-        }
-    });
-
-    if (cantidad) {
-        try {
-            const { error } = await _supa.from('movimientos_inventario').insert([{
-                producto_id: id,
-                cantidad: parseInt(cantidad),
-                tipo_movimiento: 'Entrada',
-                tienda_id: MI_TIENDA_ID,
-                motivo: 'Ingreso manual'
-            }]);
-
-            if (error) throw error;
-            notify('¡Añadido!', 'El stock se ha actualizado.', 'success');
-            init();
-        } catch (err) {
-            notify('Error en Entrada', err.message, 'error');
-        }
-    }
-}
-        async function agregarMercancia(id) {
-    const { value: cant } = await Swal.fire({
-        title: 'Agregar Cantidad',
-        input: 'number',
-        inputLabel: 'Unidades nuevas',
-        showCancelButton: true
-    });
-
-    if (cant > 0) {
-        const { error } = await _supa.from('movimientos_inventario').insert([{
-            producto_id: id,
-            cantidad: parseInt(cant),
-            tipo_movimiento: 'Entrada', // El trigger hará el resto
-            tienda_id: MI_TIENDA_ID
-        }]);
-
-        if (error) Swal.fire('Error', error.message, 'error');
-        else init(); 
-    }
-}
-        /**
- * Abre un diálogo para ingresar nuevas existencias a un producto.
- * @param {string} id - El ID del producto (UUID de Supabase).
- * @param {string} nombre - El nombre del producto para mostrar en el mensaje.
+/**
+ * Única función para ingresar nuevas existencias a un producto.
+ * Sincronizada con el esquema de movimientos_inventario.
  */
 async function añadirStock(id, nombre) {
+    // 1. Solicitud de cantidad mediante SweetAlert2
     const { value: cantidad } = await Swal.fire({
         title: `Añadir Stock: ${nombre}`,
         input: 'number',
@@ -419,21 +370,26 @@ async function añadirStock(id, nombre) {
         }
     });
 
+    // 2. Si el usuario confirmó una cantidad, procedemos a la base de datos
     if (cantidad) {
         try {
-            // Insertamos el movimiento. El TRIGGER de Supabase hará la suma automáticamente.
+            // Solo una inserción para evitar duplicados
             const { error } = await _supa.from('movimientos_inventario').insert([{
-                producto_id: id,
-                cantidad: parseInt(cantidad),
-                tipo_movimiento: 'Entrada', // Asegúrate que tu Trigger reconozca 'Entrada'
-                tienda_id: MI_TIENDA_ID,
-                motivo: 'Ingreso manual de stock'
+                producto_id: id,                  // UUID del producto
+                cantidad: parseInt(cantidad),     // Convertimos a entero para el campo int4
+                tipo_movimiento: 'Entrada',       // El Trigger sumará esto al stock_actual
+                tienda_id: MI_TIENDA_ID,          // UUID de tu tienda
+                motivo: 'Ingreso manual de stock',
+                fecha: new Date().toISOString()   // Estampa de tiempo para el historial
             }]);
 
             if (error) throw error;
 
+            // 3. Notificación de éxito y recarga de la interfaz
             await Swal.fire('¡Actualizado!', `Se han añadido ${cantidad} unidades.`, 'success');
-            init(); // Recarga la tabla en tu app
+            
+            // Llama a tu función principal para refrescar la tabla
+            if (typeof init === 'function') init(); 
 
         } catch (err) {
             console.error("Error al añadir stock:", err.message);
