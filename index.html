@@ -13,6 +13,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SweetAlert2 para mensajes elegantes -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         :root { --primary: #1d63ff; --bg: #f4f7fe; }
@@ -108,6 +110,16 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Función para mostrar notificaciones rápidas (Toasts)
+const notify = (titulo, texto, icono) => {
+    Swal.fire({
+        title: titulo,
+        text: texto,
+        icon: icono, // 'success', 'error', 'warning', 'info'
+        confirmButtonColor: '#1d63ff',
+        timer: 3000
+    });
+};
         const _supa = supabase.createClient('https://ezkjcnktgibhbkoftcvg.supabase.co', 'sb_publishable_pTUxOpSUoat4-5Tw--kxyQ_HuZldNs4');
         let dbLocal = []; 
         let MI_TIENDA_ID = null;
@@ -276,19 +288,65 @@
             }
         }
 
-        async function registrarVenta(id) {
-            const cant = prompt("¿Cantidad vendida?");
-            if (cant > 0) {
-                await _supa.from('movimientos_inventario').insert([{
-                    producto_id: id, 
-                    cantidad: parseInt(cant), 
-                    tipo_movimiento: 'salida', 
-                    motivo: 'Venta', 
-                    tienda_id: MI_TIENDA_ID
-                }]);
-                init();
+        // Reemplazo de registrarVenta con entrada de datos moderna
+async function registrarVenta(id) {
+    const { value: cant } = await Swal.fire({
+        title: 'Registrar Venta',
+        input: 'number',
+        inputLabel: '¿Cuántas unidades se vendieron?',
+        inputValue: 1,
+        showCancelButton: true,
+        confirmButtonText: 'Vender',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#1d63ff',
+        inputValidator: (value) => {
+            if (!value || value <= 0) {
+                return '¡Debes ingresar una cantidad válida!';
             }
         }
+    });
+
+    if (cant) {
+        try {
+            const { error } = await _supa.from('movimientos_inventario').insert([{
+                producto_id: id,
+                cantidad: parseInt(cant),
+                tipo_movimiento: 'Venta',
+                tienda_id: MI_TIENDA_ID
+            }]);
+
+            if (error) throw error;
+            
+            notify('¡Vendido!', 'El stock se actualizó correctamente.', 'success');
+            init(); 
+        } catch (err) {
+            notify('Error', err.message, 'error');
+        }
+    }
+}
+
+// Reemplazo de eliminarProducto con confirmación elegante
+async function eliminarProducto() {
+    const id = document.getElementById('edit-id').value;
+    
+    const resultado = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: "Esta acción no se puede deshacer",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (resultado.isConfirmed) {
+        await _supa.from('productos').delete().eq('id', id);
+        modalProd.hide();
+        notify('Eliminado', 'El producto ha sido borrado.', 'success');
+        init();
+    }
+}
 
         function filtrar(t) {
             const res = dbLocal.filter(p => 
